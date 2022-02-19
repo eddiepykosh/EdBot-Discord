@@ -92,7 +92,8 @@ async def on_message(message):
 			observation = mgr.weather_at_place(messageList[locations[0]] + ", US")
 			w = observation.weather
 			w.temperature('fahrenheit')['temp'] #AMERICA
-			response = "Hey "+ weatherPerson + "! Here is the weather in " + messageList[locations[0]].capitalize() + ": " + w.detailed_status.lower() #proper string formating is for nerds
+			response = "Hey "+ weatherPerson + "! Here is the weather in " + messageList[locations[0]].capitalize() + ": " + w.detailed_status.lower() 
+			#proper string formating is for nerds
 			await message.channel.send(response)
 		except: #Indicates the city command failed
 			await message.channel.send("lol")
