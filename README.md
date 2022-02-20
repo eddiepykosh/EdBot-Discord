@@ -39,6 +39,7 @@ Discord Python API to check all incoming messages EdBot can see and then he will
 
 Things You Should Know if you try to use this:
 ---
+* To use, you must call each of the 4 scripts individually 
 * I included a template .env file for the env variables
 * I also included the other files that the scripts reference for your reference
 * You'll need to install FFMPEG to get the audio part to work
