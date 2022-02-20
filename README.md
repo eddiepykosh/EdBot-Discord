@@ -50,6 +50,8 @@ Things You Should Know if you try to use this:
   * Also need to make a .aws folder in your /Users folder
   * Inside that you'll need a credentials file from AWS
   * Amazon probably has a guide on this 
+  * This was the guide I followed when I initally began this project
+   * https://realpython.com/how-to-make-a-discord-bot-python/ 
 
 Todo:
 ---
