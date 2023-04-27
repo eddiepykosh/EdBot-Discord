@@ -2,7 +2,7 @@
 import os
 import random
 import discord #discord stuff
-from discord.ext import commands #More Discord
+from discord.ext import commands, tasks #More Discord
 import time
 import ffmpeg #for playing audio files through commandline to discord
 import asyncpraw #Reddit Async Library
@@ -15,6 +15,9 @@ from contextlib import closing #Even More TTS
 import sys 
 import subprocess 
 import json #For Contacts File
+import wolframalpha
+import yt_dlp
+
 
 load_dotenv()
 
@@ -23,8 +26,7 @@ account_sid = os.getenv('TWILIO_ACCOUNT_ID')
 auth_token = os.getenv('TWILIO_AUTH_TOKEN')
 TwilioPhoneNumber = os.getenv('TWILIO_PHONE_NUMBER')
 
-
-
+mathID = os.getenv('WRA_MATH_KEY')
 TOKEN = os.getenv('DISCORD_TOKEN')
 
 reddit = asyncpraw.Reddit(
@@ -33,17 +35,111 @@ reddit = asyncpraw.Reddit(
     user_agent=os.getenv('USER_AGENT'),
 )
 
+yt_dlp.utils.bug_reports_message = lambda: ''
 
+ytdl_format_options = {
+    'format': 'bestaudio/best',
+    'restrictfilenames': True,
+    'noplaylist': True,
+    'nocheckcertificate': True,
+    'ignoreerrors': False,
+    'logtostderr': False,
+    'quiet': False,
+    'no_warnings': True,
+    'default_search': 'auto',
+    'source_address': '0.0.0.0' # bind to ipv4 since ipv6 addresses cause issues sometimes
+}
+
+ffmpeg_options = {
+    'options': '-vn'
+}
+
+ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
+
+class YTDLSource(discord.PCMVolumeTransformer):
+    def __init__(self, source, *, data, volume=0.5):
+        super().__init__(source, volume)
+        self.data = data
+        self.title = data.get('title')
+        self.url = ""
+
+    @classmethod
+    async def from_url(cls, url, *, loop=None, stream=False):
+        loop = loop or asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+        if 'entries' in data:
+            # take first item from a playlist
+            data = data['entries'][0]
+        filename = data['title'] if stream else ytdl.prepare_filename(data)
+        return filename
+
+#Sends a gif in the channel where called and then joins to play some audio and then leave
+async def audioPlayer(ctx, audioFile, textToSend):
+	
+	if ctx.voice_client is None:
+		if ctx.author.voice:
+			print("Need to get in")
+			audio_source = discord.FFmpegPCMAudio(audioFile)
+			print("afterFF")
+			voice_channel = ctx.author.voice.channel
+			channel = None
+			if voice_channel != None:
+				channel = voice_channel.name
+				vc = await voice_channel.connect()
+			print("I connected")
+			if not vc.is_playing():
+				print("trying1")
+				vc.play(audio_source, after=None)
+				vc.pause() #This and the async sleep is needed or else the audio will be way faster then it should
+				await asyncio.sleep(2)
+				vc.resume()
+				await ctx.send(textToSend)
+			else:
+				print("something is wrong")
+	else:
+		print("Already here")
+		if ctx.voice_client.is_playing():
+			await ctx.send("I'm busy")
+		else:
+			audio_source = discord.FFmpegPCMAudio(audioFile)	
+			server = ctx.message.guild
+			vc = server.voice_client
+			if not vc.is_playing():
+				print("trying1")
+				vc.play(audio_source, after=None)
+				vc.pause() #This and the async sleep is needed or else the audio will be way faster then it should
+				await asyncio.sleep(2)
+				vc.resume()
+				await ctx.send(textToSend)
+	return 
+
+#Reads whatever garbage I put in a text file to the discord where the command was called
+async def copyPasta(ctx, txtFile):
+	copypastafile = open(txtFile, 'r')
+	Lines = copypastafile.readlines()
+	for line in Lines:
+		await ctx.send(line)
+	copypastafile.close()
+	return
+
+#Pings the people listed in the .env that it's time to game	
+async def callingAllGamers(ctx, envData, whatToSay):
+	gamers = os.getenv(envData)
+	await ctx.send(gamers)
+	await ctx.send(whatToSay)
+	return
+    
 from discord.ext import commands
 
-bot = commands.Bot(command_prefix='./')
+intents = discord.Intents().all()
+client = discord.Client(intents=intents)
+bot = commands.Bot(command_prefix='./',intents=intents)
 
 @bot.event
 async def on_ready():
 	print('im here') #Giving EdBot Depression
 
 #This part was meant to be a rudimentary exercise that ended up taking me 4 hours
-#This should REALLY be it's own function but discord.py async stuff is hell to deal with
 @bot.command(name='addcontact', help='add a contact')
 async def contactadd(ctx, *,contactData):
 	discordInput = contactData
@@ -76,45 +172,24 @@ async def printcontacts(ctx):
 		pythonDict = json.load(json_file)
 		json_file.close()
 	print(pythonDict)
+	#Dear Noah, JSON cleaning is for nerds
 	await ctx.send(str(pythonDict))
-
-#Sends a gif in the channel where called and then joins to play some audio and then leave	
+	
 @bot.command(name='meme', help='when someone sends an absolute MEME')
 async def meme(ctx):
-	await ctx.send("https://c.tenor.com/BM-QtYCZIloAAAAd/not-funny-didnt-laugh.gif")
-	audio_source = discord.FFmpegPCMAudio('notfunny.mp3')
-	voice_channel = ctx.author.voice.channel
-	channel = None
-	if voice_channel != None:
-		channel = voice_channel.name
-		vc = await voice_channel.connect()
-	if not vc.is_playing():
-		vc.play(audio_source, after=None)
-		vc.pause() #This and the async sleep is needed or else the audio will be way faster then it should
-		await asyncio.sleep(2)
-		vc.resume()
-	while vc.is_playing():
-		await asyncio.sleep(0.5)
-	await vc.disconnect()
+	await audioPlayer(ctx, 'notfunny.mp3', "https://c.tenor.com/BM-QtYCZIloAAAAd/not-funny-didnt-laugh.gif")
 
-#Sends a gif in the channel where called and then joins to play some audio and then leave
 @bot.command(name='walled', help='GET TILTED')
 async def walled(ctx):
-	await ctx.send("http://files.pykosh.com/files/gif/wall.gif")
-	audio_source = discord.FFmpegPCMAudio('walled.mp3')
-	voice_channel = ctx.author.voice.channel
-	channel = None
-	if voice_channel != None:
-		channel = voice_channel.name
-		vc = await voice_channel.connect()
-	if not vc.is_playing():
-		vc.play(audio_source, after=None)
-		vc.pause() #This and the async sleep is needed or else the audio will be way faster then it should
-		await asyncio.sleep(2)
-		vc.resume()
-	while vc.is_playing():
-		await asyncio.sleep(0.5)
-	await vc.disconnect()
+	await audioPlayer(ctx, 'walled.mp3', "http://files.pykosh.com/files/gif/wall.gif")
+
+@bot.command(name='PVS', help='GET HYPER')
+async def walled(ctx):
+	await audioPlayer(ctx, 'PVS.mp3', "I'm sorry")
+	
+@bot.command(name='bamba', help='GET SINGING')
+async def walled(ctx):
+	await audioPlayer(ctx, 'LaBamba.mp3', "I'm sorry")
 
 #For if someone sends an annoyingly long TTS, you can force EdBot out of your VC
 @bot.command(name='fuckoff', help='forces EdBot out of Voice')
@@ -137,7 +212,8 @@ async def parrot(ctx, *,whatToParrot):
 	channel = bot.get_channel(parrotChannel)
 	await channel.send(whatToParrot)
 
-#This should also be it's own fuction or another Python File, but once again dealing with async stuff is hell
+#This should also be it's own fuction or another Python File, but once again dealing with async stuff is hell.
+# Edit - I just can't be bothered
 #I didn't write the TTS code, that came from my friend for my TeamSpeak Bot
 @bot.command(name='tts', help='lol funny voice')
 async def tts(ctx, *,whatTotts):
@@ -165,20 +241,7 @@ async def tts(ctx, *,whatTotts):
 	except BotoCoreError as error:
 		print(error)
 		return error
-	audio_source = discord.FFmpegPCMAudio('last_tts.mp3')
-	voice_channel = ctx.author.voice.channel
-	channel = None
-	if voice_channel != None:
-		channel = voice_channel.name
-		vc = await voice_channel.connect()
-	if not vc.is_playing():
-		vc.play(audio_source, after=None)
-		vc.pause() #This and the async sleep is needed or else the audio will be way faster then it should
-		await asyncio.sleep(2) 
-		vc.resume()
-	while vc.is_playing():
-		await asyncio.sleep(0.5)
-	await vc.disconnect()
+	await audioPlayer(ctx, 'last_tts.mp3', "TTS Created")
 
 #Will never actually ban someone. Just a social experiment 
 @bot.command(name='ban', help='/ban @username')
@@ -192,6 +255,23 @@ async def ban(ctx, *,userName):
 	await ctx.send("1")
 	time.sleep(5)
 	await ctx.send("HA. Bitch u thought")
+	
+#Using WolfRamAlpha API to do complex stuff
+@bot.command(name='domath', help='does some math and other stuff')
+async def domath(ctx, *,mathRequest):
+	client = wolframalpha.Client(mathID)
+	await ctx.send("hmmmm let me think")
+	# Stores the response from
+	# wolf ram alpha
+	try:
+		res = client.query(mathRequest)
+
+		# Includes only text from the response
+		answer = next(res.results).text
+	except:
+		answer = "Sorry but I don't know"
+
+	await ctx.send(answer)
 
 #Ripped the logic of this straight out of Stack Overflow
 @bot.command(name='reddit', help='Pull a hot post from the sub of your choice.   usage: ./reddit <inset sub here> ')
@@ -211,46 +291,20 @@ async def redditRandom(ctx, *,redditSub):
 @bot.command(name='fortnite', help='fortnite')
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def fortnite(ctx):
-	fortniteGang = os.getenv('FORTNITE_PEOPLE')
-	await ctx.send(fortniteGang)
-	await ctx.send("Fortnite time")
-
+	await callingAllGamers(ctx, 'FORTNITE_PEOPLE', "Fortnite time")
+	
 #Pings the people listed in the .env that it's time to game
 @bot.command(name='valorant', help='valoreeee')
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def valorant(ctx):
-	valorantGang = os.getenv('VALORANT_PEOPLE')
-	await ctx.send(valorantGang)
-	await ctx.send("Valorant time")
-
-#Basically changes a .txt document from True to false or vice-versa
-#DEFINITLY a better way to do this
-@bot.command(name='togglewakeup', help='Turn on and off wakeup')
-async def togglewakeup(ctx):
-	botOwner = os.getenv('BOT_OWNER')
-	if str(ctx.author) == botOwner : #Makes it so only I can use this command. DEFINITLY a better way to do this
-		with open('togglewakeup.txt', 'r') as file:
-			status = file.read().rstrip()
-			file.close()
-			print(status)
-		if status == 'True':
-			with open('togglewakeup.txt', 'w') as file:
-				file.write('False')
-				file.close()
-			await ctx.send('Wake up is now OFF')
-		else:
-			with open('togglewakeup.txt', 'w') as file:
-				file.write('True')
-				file.close()
-			await ctx.send('Wake up is now ON')
-	else:
-		await ctx.send('Sorry, but you are not Eddie')
+	await callingAllGamers(ctx, 'VALORANT_PEOPLE', "Valorant time")
 
 #My pride and joy feature.  You can text someone from Discord
 @bot.command(name='text', help='text someone')
 @commands.cooldown(1, 15, commands.BucketType.user)
 async def text(ctx, *,whatToText):
 	stringList = whatToText.split(" ") #breaks everything after ./text into a list
+	print(ctx.author)
 	with open('contacts.json') as json_file: #Read in the contacts file
 		pythonDict = json.load(json_file)
 		json_file.close()
@@ -302,6 +356,7 @@ async def text(ctx, *,whatToText):
 async def call(ctx, *,whatToText):
 	#Due to calls being alot more serious, user's must supply the phone number 
 	#Also I'm lazy
+	print(ctx.author)
 	stringList = whatToText.split(" ")
 	phoneNumber = stringList.pop(0)
 	if len(phoneNumber) == 10:
@@ -326,6 +381,7 @@ async def customcall(ctx, *,whatToText):
 	#Also I'm lazy
 	#There is no code here to check if link is a actual valid MP3.
 	#If the MP3 is invalid the TWILIO API will play a "Call could not be completed" to target phone number
+	print(ctx.author)
 	stringList = whatToText.split(" ")
 	phoneNumber = stringList.pop(0)
 	mp3Link = stringList.pop(0)
@@ -348,33 +404,27 @@ async def customcall(ctx, *,whatToText):
 #These next 4 are pretty self explanitory, just a shitpost command
 @bot.command(name='kurt', help='my opinion on kurt thomspon')
 async def kurt(ctx):
-	await ctx.send("I’m just gonna preface this by saying don’t read this, it’s long and I’m just ranting.")
-	await ctx.send("Let me just say, Kurt Thompson is one of the most vile, egotistical trumpet players I have ever heard, and a total bigot.")
-	await ctx.send("His playing is okay at best. He can get up there, but it sounds like shit. No consistency or good sound articulation, and he’s not good enough to have a style. The only thing he can do is play relatively high, otherwise he sounds like a goddamn 3rd grader.")
-	await ctx.send("You wouldn’t be able to tell by his ego however, which is on a level I have never seen before. His ego passes that if any player I’ve ever seen and he appears to believe he is better than even Wayne Bergeron or Allen Vizzuti, saying that he leaves them all behind while playing his “quadruple g” (which is perhaps the most bullshit thing I’ve ever heard). And his ego makes him loud and annoying, and it makes young inexperienced folk listen to him.")
-	await ctx.send("Which brings me to the worst part about him, his method. Because he can play high, that means young players thinks he’s amazing and will listen to what he says. And what he says is breeding the worst breed of trumpet players I have ever heard. I recently did a camp with some high school kids over the summer and judged their playing and attempted to help hem but they were some of the most unbearable children I’ve ever met. They repeated everything Kurt had ever said in his methods which is just total bs and makes no sense, and when I tried to get them on track to play decently they all asked how high I could play, and when I would not honor such a dumb question, they attempted to show me his method, that has made them all just terrible musicians. He markets to young kids that don’t know any better by flaunting his one ok talent, and it is giving them massive egos, a terrible view of the instrument, and none of them will let go.")
-	await ctx.send("On top of that, he will do anything to sell his method. In a video description, he said that women aren’t as good at screaming trumpet and that the only thing to fix that was his course. That makes me sick. Calling women bad at trumpet and then trying to sell bullshit to make them better? That’s sexist and a shitty thing to do. He has called out other players by name and called them terrible and then tried to sell. He has squeaked a high note and tried to sell. He released perhaps the most egregious recording of MacArthur park and tried to sell because of that. I don’t know where I’m going with this, I got sidetracked, but this dude just fuckijg sucks.")
-	await ctx.send("TLDR; fuck Kurt Thompson, a shitty player and an even shittier person.")
+	await copyPasta(ctx, "copy_pastas/kurt.txt")
 
 @bot.command(name='tuning', help='my opinion on tuning')
 async def tuning(ctx):
-	await ctx.send("I have heard of (factory tuned) tubas.  Does that mean they are tuned to a certain pitch or what?  Is there such a thing as a factory tuned tuba, does the term apply to other brass instruments?")
-	await ctx.send("I have a very old tuba - my photo - made in the late 1800s in Grasliz Bohemia for the Carl Fuchs Music Company In Los Angeles, CA.  During tuning I seldom have to tinker with slides on my horn - all comments and questions are welcome.  By the way, many years ago while playing with the Palos Verdes Symphonic Band I was teased about my factory tuned Tuba.")
-	await ctx.send("It embarrassed me, I reddened because I thought it was a criticism of my playing.  I’m still not sure what he meant but I’m going on my 56th year playing that same Tuba I purchased from Milt Marcus, a Tuba collector living in Long CA when I was 24.")
+	print("being commanded")
+	await copyPasta(ctx, "copy_pastas/tune.txt")
 	
 @bot.command(name='yamaha', help='my opinion on yamaha')
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def yamaha(ctx):
-	await ctx.send("As I've discussed with you elsewhere, I personally find every single Yamaha horn to be absolute garbage. Lifeless horns with no playability. They only play 'one way' and if you want to, or personally do, play differently, you will not get any better result. In fact it may, and likely will, play worse. I hate, hate, hate the sound of Yamaha low brass. It's so thin, lifeless, and boring. That's because Japanese musical culture values higher voices more than lower voices. That's why there's so much more of the fluff and junk from piccolos and flutes and all that mess in Japanese band literature.")
+	await copyPasta(ctx, "copy_pastas/yamaha.txt")
 
 @bot.command(name='genz', help='my opinion on zoomers')
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def genz(ctx):
-	await ctx.send("Greetings fellow chatters of Trombone,")
-	await ctx.send(' I write to you today in lieu of some, lets say…interesting fashion choices I’ve observed Gen Z make over the past couple of auditions I’ve taken. Just the other day I saw a young man show up to an audition in just a sweater and khakis. There wasn’t a single button in site! No buttons! Now if God has taught me one thing it is to never pass judgement on my fellow man. However, this time I couldn’t help but wonder “who does this little youknowwhat think he is??”')
-	await ctx.send('The Gen Z media will have you believe that since the audition is “blind” you should “wear whatever you’re comfortable in.” I say shame on you. I cannot count how many lovely conversations I’ve had in musicians lounges waiting for the inevitable “the committee has decided to advance this candidate or that candidate”, that I simply wouldn’t have had had I not been wearing a button down and slacks! There’s a certain respect you earn with your attire in this business before you ever play a note. You never know who might have a gig ready for a handsome, put together trombonist. I mean, will this generation stop at nothing before they break down every barrier separating civil society from savagery?')
-	await ctx.send('I’m wondering what the hive thinks about attire for blind auditions. Am I crazy or should you hold on to some dignity behind that screen?')
-	await ctx.send('P.S. if someone could get me Steve Shires’ contact info I would really appreciate it. I’ve been working on a 3D printed valve with my nephew that I’d love to get his eyes on now that he’s making trombones again. Thanks.')
+	await copyPasta(ctx, "copy_pastas/genz.txt")
+	
+@bot.command(name='cctuba', help='my opinion on cctuba')
+@commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
+async def cctuba(ctx):
+	await copyPasta(ctx, "copy_pastas/cctuba.txt")
 	
 #Yells at user if they are on cooldown 
 @bot.event
@@ -382,7 +432,68 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
         await ctx.send('This command is on cooldown, you can use it in ' + str(round(error.retry_after, 2)) + ' seconds' )
         
+
+@bot.command(name='play', help='To play song')
+async def play(ctx,url):
+	try:
+		async with ctx.typing():
+			print("Attempting Download")
+			await ctx.send("Downloading...")
+			filename = await YTDLSource.from_url(url, loop=bot.loop)
+			print("I did it")
+			await audioPlayer(ctx, filename, '**Now playing:** {}'.format(filename))
+			voice_channel.play(discord.FFmpegPCMAudio(executable="ffmpeg.exe", source=filename))
+	except Exception as e:
+		await ctx.send("Something went wrong: " + e)
+
+@bot.command(name='play_song', help='To play song')
+async def play(ctx,url):
+	await ctx.send("It's ./play now")
+
+@bot.command(name='pause', help='This command pauses the song')
+async def pause(ctx):
+    voice_client = ctx.message.guild.voice_client
+    if voice_client.is_playing():
+        await voice_client.pause()
+    else:
+        await ctx.send("The bot is not playing anything at the moment.")
+    
+@bot.command(name='resume', help='Resumes the song')
+async def resume(ctx):
+    voice_client = ctx.message.guild.voice_client
+    if voice_client.is_paused():
+        await voice_client.resume()
+    else:
+        await ctx.send("The bot was not playing anything before this. Use play_song command")
+
+@bot.command(name='stop', help='Stops the song')
+async def stop(ctx):
+    voice_client = ctx.message.guild.voice_client
+    if voice_client.is_playing():
+        await voice_client.stop()
+    else:
+        await ctx.send("The bot is not playing anything at the moment.")
+
+@bot.command(name='join', help='Tells the bot to join the voice channel')
+async def join(ctx):
+    if not ctx.message.author.voice:
+        await ctx.send("{} is not connected to a voice channel".format(ctx.message.author.name))
+        return
+    else:
+        channel = ctx.message.author.voice.channel
+    await channel.connect()
 	
+@bot.command(name='ben', help='god help us all')
+@commands.cooldown(1, 5, commands.BucketType.user)
+async def ben(ctx):
+	benVoice = random.choice(["ben/ben_laugh.mp3" , "ben/ben_yes.mp3", "ben/ben_no.mp3", "ben/ben_grunt.mp3"])
+	await audioPlayer(ctx, benVoice, "calling ben")
+	
+@bot.command(name='bow', help='LETS GET IT')
+@commands.cooldown(1, 5, commands.BucketType.user)
+async def ben(ctx):
+	await audioPlayer(ctx, "BOW.webm", "on it")
+
 bot.run(TOKEN) #Kickoff EdBot
 
 
