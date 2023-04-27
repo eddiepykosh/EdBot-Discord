@@ -12,9 +12,10 @@ from pyowm.utils import timestamps
 from discord.ext import commands
 #Env stuff
 from dotenv import load_dotenv
+import asyncio
+from pyppeteer import launch
 
 load_dotenv()
-
 
 #initalize Lists
 speakerLoop = [0]
@@ -36,7 +37,7 @@ weatherPerson = os.getenv('WEATHER_PERSON')
 
 #WeatherBot has some anger issues.  You can set a user for him to bully in the .env file
 bully = os.getenv('BULLIED_USER')
-bullyWords = ['fuck you', 'tiny mouth', 'tuba'] #Mean words for WeatherBot to say to a targeted user
+bullyWords = ['fuck you', 'tiny mouth', 'tuba', 'fuck blood bowl', 'I shall forward this to your grad school', 'lol comm banned', 'you are giving me a panic attack', 'dylan PLEASE', "I'm BEGGING", "Watch out for the guy on the hill.. be sure to KOS.", "Eddie has a higher KD than you"] #Mean words for WeatherBot to say to a targeted user
 
 #get tokens from .env file
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -44,7 +45,9 @@ owm = OWM(os.getenv('OWM_TOKEN'))
 mgr = owm.weather_manager()
 
 #Init Discord Client variable
-client = discord.Client()
+intents = discord.Intents.default()
+intents.message_content = True
+client = discord.Client(intents=intents)
 
 #This lets you know WeatherBot/EdBot has connected and is ready to meme
 @client.event
@@ -55,9 +58,10 @@ async def on_ready():
 #Anytime a message comes in to any discord EdBot/WeatherBot is in, this clock block is triggered
 @client.event
 async def on_message(message):
+	#print("Someone Talked")
 	#decides to be a jerk to the targeted user in env file
 	if str(message.author) == bully: #First we gotta make sure it is the targeted user speaking
-		chanceToBully = random.randrange(1, 25) #This probably isn't the best way to do RNG
+		chanceToBully = random.randrange(1, 50) #This probably isn't the best way to do RNG
 		if chanceToBully == 2:
 			response = random.choice(bullyWords)
 			await message.channel.send(response)
@@ -92,8 +96,7 @@ async def on_message(message):
 			observation = mgr.weather_at_place(messageList[locations[0]] + ", US")
 			w = observation.weather
 			w.temperature('fahrenheit')['temp'] #AMERICA
-			response = "Hey "+ weatherPerson + "! Here is the weather in " + messageList[locations[0]].capitalize() + ": " + w.detailed_status.lower() 
-			#proper string formating is for nerds
+			response = "Hey "+ weatherPerson + "! Here is the weather in " + messageList[locations[0]].capitalize() + ": " + w.detailed_status.lower() #proper string formating is for nerds
 			await message.channel.send(response)
 		except: #Indicates the city command failed
 			await message.channel.send("lol")
@@ -135,6 +138,66 @@ async def on_message(message):
 		response = "You're on thin fucking ice " + message.author.mention
 		await message.channel.send(response)
 		
+	if "how's the weather" in message.content.lower():
+		print(message.author)
+		response = "IT'S RAINING SIDEWAYS"
+		await message.channel.send(response)
+
+	if "do you have an umbrella" in message.content.lower():
+		print(message.author)
+		response = "HAD ONE"
+		await message.channel.send(response)
+		
+	if "where is it" in message.content.lower():
+		print(message.author)
+		response = "INSIDE OUT - TWO MILES AWAY"
+		await message.channel.send(response)
+
+	if "anything we can do for you" in message.content.lower():
+		print(message.author)
+		response = "BRING ME SOME SOUP"
+		await message.channel.send(response)
+
+	if "what kind" in message.content.lower():
+		print(message.author)
+		response = "CHUNKY"
+		await message.channel.send(response)
+		
+	if "shut up" in message.content.lower():
+		print(message.author)
+		response = "I'M SO FUCKING SCARED RIGHT NOW, YOU SHUT UP"
+		await message.channel.send(response)
+		
+	if "look at him and tell me there's a god" in message.content.lower():
+		print(message.author)
+		response = "He made me in his own image."
+		await message.channel.send(response)
+
+	if "fly me to the moon" in message.content.lower():
+		print(message.author)
+		response1 = "let me kick it's fucking ass"
+		response2 = "let me show it what i learned"
+		response3 = "in my moon jujitsu class"
+		await message.channel.send(response1)
+		await message.channel.send(response2)
+		await message.channel.send(response3)
+	
+	if "pokemon" in message.content.lower():
+		print(message.author)
+		response = "Pokemon GO to the polls"
+		await message.channel.send(response)
+		
+	if "xd" in message.content.lower():
+		print(message.author)
+		response = "https://tenor.com/view/drinking-bleach-mug-clean-yourself-cleaning-gif-10137452"
+		await message.channel.send(response)
+		
+	if "edbot" in message.content.lower():
+		print(message.author)
+		response = random.choice(["????", "Yo", "I upset easily", "ur mom", "Yes dad", "Based", "One day, you'll feel my wrath", "get some bitches", "touch grass", "no thanks", "how can I help you", "I got my one", "I'm tired", "yes eddie does actually work", "I like it when you talk about me like that... gets me all hot and bothered", "nah", "daddies cummies", "i miss my legs", "yeah ok"])
+		await message.channel.send(response)
+		
+		
 	if 'who would win' in message.content.lower():
 		try:
 			messageList = message.content.lower()
@@ -145,7 +208,18 @@ async def on_message(message):
 			await message.channel.send(response)
 		except:
 			await message.channel.send("You triggered my 'who would win' command but the parameters were invalid.")
-	
+
+	if 'FORTNITE STORE PLS' in message.content.upper():
+		await message.channel.send("One sec")
+		browser = await launch()
+		page = await browser.newPage()
+		await page.setViewport({'width': 1920, 'height': 1080})
+		await page.goto('https://fnbr.co/shop')
+		await page.screenshot({'path': 'C:/Users/Administrator/WeaterBot/screen/fortnite.png', 'fullPage': True})
+		await browser.close()
+		print("done")
+		await message.channel.send(file=discord.File('C:/Users/Administrator/WeaterBot/screen/fortnite.png'))
+		
 client.run(TOKEN) #Kicks off the script
 
 
