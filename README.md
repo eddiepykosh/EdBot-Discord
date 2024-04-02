@@ -33,9 +33,10 @@ Discord Python API to check all incoming messages EdBot can see and then he will
 * TextMessagePoster.py
   * This code is an infinite loop (remember when I said coding malpratice?) that check for updates to the text file that IncomingTextsServer.py is updating
   * See the comments in the code for more info on this part
-* The was also 5th script to this that used OpenAI
+* There was also 5th script to this that used OpenAI
   * It is no longer used because I could not really wrap my head around it
-  * When I did manage to wrap my head around one part, the bot literally told me to go Alt-F4 myself  
+  * When I did manage to wrap my head around one part, the bot literally told me to go Alt-F4 myself
+  * This was ALSO before ChatGPT was a thing so the AI was really rowdy.
 
 Things You Should Know if you try to use this:
 ---
