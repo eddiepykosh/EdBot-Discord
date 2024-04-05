@@ -1,10 +1,15 @@
-#The orginal version of EdBot.  Originally named "WeatherBot" 
-#Does not use a command prefix and checks every message that comes in to see if it matches a keyword.  If it does, then EdBot does an action.  Similar to how ToddBot works.
+'''
+The orginal version of EdBot.  Originally named "WeatherBot" 
+Does not use a command prefix and checks every message that comes 
+in to see if it matches a keyword.  If it does, 
+then EdBot does an action.  Similar to how ToddBot works.
+'''
+
 
 import os
 import random
 import discord
-#Weather Thing API
+# Weather Thing API
 from pyowm import OWM
 from pyowm.utils import config
 from pyowm.utils import timestamps
@@ -17,6 +22,9 @@ from pyppeteer import launch
 
 load_dotenv()
 
+# Find where script is running
+script_dir = os.path.dirname(__file__)
+
 #initalize Lists
 speakerLoop = [0]
 currentSpeaker = ['tom nook'] #I needed a inital name so I used Tom Nook :)
@@ -24,10 +32,17 @@ cityList = ['pittsburgh', 'waco', 'harrisburg', 'indiana', 'donora'] #Inital set
 
 #This part gets more cites from a txt file.
 #I was lazy and didn't want to manually add these to a list variable so it does this instead.
-txt_file = open("more cities.txt", "r")
-file_content = txt_file.read()
-cityList += file_content.split("\n")
-txt_file.close()
+city_file_path = os.path.join(script_dir, 'assets', 'text', 'cities.txt')
+try:
+	with open(city_file_path, 'r') as file:
+        # Read the file
+		city_file_content = file.read()
+		cityList += city_file_content.split("\n")
+		file.close()
+except FileNotFoundError:
+    print(f"The file {city_file_path} was not found.")
+
+
 for i in range(len(cityList)):
     cityList[i] = cityList[i].lower()
 print(cityList)
