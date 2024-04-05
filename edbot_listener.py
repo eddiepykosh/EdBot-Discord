@@ -4,8 +4,6 @@ Does not use a command prefix and checks every message that comes
 in to see if it matches a keyword.  If it does, 
 then EdBot does an action.  Similar to how ToddBot works.
 '''
-
-
 import os
 import random
 import discord
@@ -13,9 +11,9 @@ import discord
 from pyowm import OWM
 from pyowm.utils import config
 from pyowm.utils import timestamps
-#More Discord stuff (not even sure if this is needed tbh)
+# More Discord stuff (not even sure if this is needed tbh)
 from discord.ext import commands
-#Env stuff
+# .env stuff
 from dotenv import load_dotenv
 import asyncio
 from pyppeteer import launch
@@ -26,97 +24,100 @@ load_dotenv()
 script_dir = os.path.dirname(__file__)
 
 #initalize Lists
-speakerLoop = [0]
-currentSpeaker = ['tom nook'] #I needed a inital name so I used Tom Nook :)
-cityList = ['pittsburgh', 'waco', 'harrisburg', 'indiana', 'donora'] #Inital set of cities for WeatherBot to check each incoming message for
+speaker_loop = [0]
+current_speaker = ['tom nook'] # I needed a inital name so I used Tom Nook :)
+city_list = ['norfolk']
 
-#This part gets more cites from a txt file.
-#I was lazy and didn't want to manually add these to a list variable so it does this instead.
+# This part gets cites from  cities.txt in assets/text.
 city_file_path = os.path.join(script_dir, 'assets', 'text', 'cities.txt')
 try:
 	with open(city_file_path, 'r') as file:
         # Read the file
 		city_file_content = file.read()
-		cityList += city_file_content.split("\n")
+		city_list += city_file_content.split("\n")
 		file.close()
 except FileNotFoundError:
     print(f"The file {city_file_path} was not found.")
 
 
-for i in range(len(cityList)):
-    cityList[i] = cityList[i].lower()
-print(cityList)
+for i in range(len(city_list)):
+    city_list[i] = city_list[i].lower()
+print(city_list)
 
-#Gets the Weather Lady
-weatherPerson = os.getenv('WEATHER_PERSON')
+# Gets the Weather Lady
+weather_person = os.getenv('WEATHER_PERSON')
 
-#WeatherBot has some anger issues.  You can set a user for him to bully in the .env file
-bully = os.getenv('BULLIED_USER')
-bullyWords = ['fuck you', 'tiny mouth', 'tuba', 'fuck blood bowl', 'I shall forward this to your grad school', 'lol comm banned', 'you are giving me a panic attack', 'dylan PLEASE', "I'm BEGGING", "Watch out for the guy on the hill.. be sure to KOS.", "Eddie has a higher KD than you"] #Mean words for WeatherBot to say to a targeted user
+# EdBot has some anger issues.  You can set a user for him to bully in the .env file
+bullied_user = os.getenv('BULLIED_USER')
+bully_words = ['fuck you', 'tiny mouth', 'tuba', 'fuck blood bowl', 'I shall forward this to your grad school', 'lol comm banned', 'you are giving me a panic attack', 'dylan PLEASE', "I'm BEGGING", "Watch out for the guy on the hill.. be sure to KOS.", "Eddie has a higher KD than you"] #Mean words for WeatherBot to say to a targeted user
 
-#get tokens from .env file
+# Get Discord and Weather Manager tokens from .env file
 TOKEN = os.getenv('DISCORD_TOKEN')
 owm = OWM(os.getenv('OWM_TOKEN'))
 mgr = owm.weather_manager()
 
-#Init Discord Client variable
+# Init Discord Client variable
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-#This lets you know WeatherBot/EdBot has connected and is ready to meme
+# Connected 
 @client.event
 async def on_ready():
 	print(f'{client.user.name} has connected to Discord!')
 
-#Where all the magic happens
-#Anytime a message comes in to any discord EdBot/WeatherBot is in, this clock block is triggered
+'''
+Where all the magic happens.
+
+Anytime a message comes in to any 
+Discord EdBot/WeatherBot is in, this block is triggered.
+'''
+
 @client.event
 async def on_message(message):
-	#print("Someone Talked")
-	#decides to be a jerk to the targeted user in env file
-	if str(message.author) == bully: #First we gotta make sure it is the targeted user speaking
-		chanceToBully = random.randrange(1, 50) #This probably isn't the best way to do RNG
-		if chanceToBully == 2:
-			response = random.choice(bullyWords)
+	# A jerk function that says mean things to the targeted user.
+	if str(message.author) == bullied_user:
+		chance_to_bully = random.randrange(1, 50)
+		if chance_to_bully == 2:
+			response = random.choice(bully_words)
 			await message.channel.send(response)
 			
-	#Stops from talking to himself
+	# Stops from talking to himself.
 	if message.author == client.user:
 		return
 	
-	#Checks if someone is being annoying	
-	if message.author == currentSpeaker[0]:
-		speakerLoop[0] += 1
+	# Checks if someone is being annoying.	
+	if message.author == current_speaker[0]:
+		speaker_loop[0] += 1
 	else: 
-		currentSpeaker[0] = message.author
-		speakerLoop[0] = 1
-	if speakerLoop[0] >= 10:
-		speakerLoop[0] = 0
+		current_speaker[0] = message.author
+		speaker_loop[0] = 1
+	if speaker_loop[0] >= 10:
+		speaker_loop[0] = 0
 		response = "Hey " + message.author.mention + " can you SHUT THE FUCK UP"
 		await message.channel.send(response)			
 		
 
-	#If ANY part of someones message contains a city in cityList, then we proceed 
-	if any(cities.lower() in message.content.lower() for cities in cityList):
+	# If ANY part of someones message contains a city in city_list, then we proceed. 
+	if any(cities.lower() in message.content.lower() for cities in city_list):
 		try: 
-			#This is a try block because sometimes some will say a word that accidentitly cpntains a city word.
-			#For example "experienced" contains the city "Erie" and because of that, the code block will crash bc of the spaghetti code below 
+			# This is a try block because sometimes some will say a word that accidentitly cpntains a city word.
+			# For example "experienced" contains the city "Erie" and because of that, the code block will crash bc of the spaghetti code below 
 			print('running city command')
 			print(message.author)
-			messageList = message.content.lower()
-			messageList = messageList.split(" ")
-			cityListset = set(cityList) #No idea
-			locations = [i for i, item in enumerate(messageList) if item in cityListset] #LMAO on the logic.  This looks for what city the user said in their message.
-			observation = mgr.weather_at_place(messageList[locations[0]] + ", US")
+			message_list = message.content.lower()
+			message_list = message_list.split(" ")
+			city_listset = set(city_list) # No idea
+			locations = [i for i, item in enumerate(message_list) if item in city_listset] #LMAO on the logic.  This looks for what city the user said in their message.
+			observation = mgr.weather_at_place(message_list[locations[0]] + ", US")
 			w = observation.weather
-			w.temperature('fahrenheit')['temp'] #AMERICA
-			response = "Hey "+ weatherPerson + "! Here is the weather in " + messageList[locations[0]].capitalize() + ": " + w.detailed_status.lower() #proper string formating is for nerds
+			w.temperature('fahrenheit')['temp'] # AMERICA
+			response = f"Hey {weather_person}! Here is the weather in {message_list[locations[0]].capitalize()}: {w.detailed_status.lower()}"
 			await message.channel.send(response)
-		except: #Indicates the city command failed
+		except:
 			await message.channel.send("lol")
 
-	if 'uwu' in message.content.lower(): #uwu is cringe
+	if 'uwu' in message.content.lower():
 		print(message.author)
 		response = message.author.mention + " stop that. "
 		await message.channel.send(response)
@@ -128,7 +129,7 @@ async def on_message(message):
 		
 	if 'pog' in message.content.lower(): 
 		print(message.author)
-		chancetoPog = random.randrange(1, 5)  #This probably isn't the best way to do RNG
+		chancetoPog = random.randrange(1, 5)  # This probably isn't the best way to do RNG
 		if chancetoPog == 2:
 			response = "<:retrenched:885980310754459730>"
 			await message.channel.send(response)
@@ -138,7 +139,7 @@ async def on_message(message):
 		response = "<@690012125430546562>"
 		await message.channel.send(response)
 	
-	if 'todd' in message.content.lower(): #EdBot gets meta
+	if 'todd' in message.content.lower(): # EdBot gets meta
 		print(message.author)
 		response = "im just a shitty toddbot"
 		await message.channel.send(response)
@@ -215,11 +216,11 @@ async def on_message(message):
 		
 	if 'who would win' in message.content.lower():
 		try:
-			messageList = message.content.lower()
-			messageList = messageList.split(" ")
-			orLocation = messageList.index("or")
-			fighterOptions = [(messageList[orLocation + 1]), (messageList[orLocation - 1])] #There is a bug here where the option to the left of the "Or" must be a single word and cannot be multiple words
-			response = random.choice(fighterOptions) + " would win." #IDK if I just had bad RNG but this will occassionaly favor the first selection
+			message_list = message.content.lower()
+			message_list = message_list.split(" ")
+			or_location = message_list.index("or")
+			fighter_options = [(message_list[or_location + 1]), (message_list[or_location - 1])] # There is a bug here where the option to the left of the "Or" must be a single word and cannot be multiple words
+			response = random.choice(fighter_options) + " would win." # IDK if I just had bad RNG but this will occassionaly favor the first selection
 			await message.channel.send(response)
 		except:
 			await message.channel.send("You triggered my 'who would win' command but the parameters were invalid.")
@@ -235,7 +236,7 @@ async def on_message(message):
 		print("done")
 		await message.channel.send(file=discord.File('C:/Users/Administrator/WeaterBot/screen/fortnite.png'))
 		
-client.run(TOKEN) #Kicks off the script
+client.run(TOKEN) # Kicks off the script
 
 
 
