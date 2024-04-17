@@ -25,9 +25,10 @@ script_dir = os.path.dirname(__file__)
 
 #initalize Lists
 speaker_loop = [0]
-current_speaker = ['tom nook'] # I needed a inital name so I used Tom Nook :)
+current_speaker = ['tom nook']
 city_list = ['norfolk']
 bully_words = ['nah']
+edbot_responses_list = ['whatever you say man']
 
 # Gets the Weather Lady
 weather_person = os.getenv('WEATHER_PERSON')
@@ -43,9 +44,9 @@ except FileNotFoundError:
     print(f"The file {city_file_path} was not found.")
 
 
-for i in range(len(city_list)):
-    city_list[i] = city_list[i].lower()
-print(city_list)
+# for i in range(len(city_list)):
+#     city_list[i] = city_list[i].lower()
+# print(city_list)
 
 
 # EdBot has some anger issues.  You can set a user for him to bully in the .env file
@@ -60,6 +61,16 @@ try:
 		file.close()
 except FileNotFoundError:
     print(f"The file {bully_file_path} was not found.")
+
+edbot_response_file_path = os.path.join(script_dir, 'assets', 'text', 'edbot_responses.txt')
+try:
+	with open(edbot_response_file_path, 'r') as file:
+        # Read the file
+		edbot_response_content = file.read()
+		edbot_responses_list += edbot_response_content.split("\n")
+		file.close()
+except FileNotFoundError:
+    print(f"The file {edbot_response_file_path} was not found.")
 
 # Get Discord and Weather Manager tokens from .env file
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -142,6 +153,82 @@ async def on_message(message):
 			# Proper error logging
 			print(f"An error occurred: {str(e)}")
 			await message.channel.send("I pooped.")
+
+	if 'who would win' in message.content.lower():
+		try:
+			content_lower = message.content.lower()
+			# Find the position of "or" in the message
+			words = content_lower.split()
+			if "or" not in words:
+				raise ValueError("No 'or' found in message.")
+
+			or_index = words.index("or")
+			
+			# Extract fighters: Consider words before and after "or"
+			# Join words from 'who would win' to 'or' (excluding both)
+			left_start = max(0, words.index("win") + 1) if "win" in words else 0
+			right_end = len(words) - 1
+			
+			# Take words from 'win' to 'or' for the left fighter and 'or' to the end for the right fighter
+			fighter_left = ' '.join(words[left_start:or_index])
+			fighter_right = ' '.join(words[or_index + 1:right_end + 1])
+			
+			# Validate fighters
+			if not fighter_left or not fighter_right:
+				raise ValueError("Fighter names cannot be parsed correctly.")
+
+			# Choose a random fighter
+			fighter_options = [fighter_left, fighter_right]
+			winner = random.choice(fighter_options)
+			response = f"{winner} would win."
+			await message.channel.send(response)
+		
+		except Exception as e:
+			print(f"Error: {str(e)}")
+			await message.channel.send("You triggered my 'who would win' command but the parameters were invalid.")
+
+	if 'FORTNITE STORE PLS' in message.content.upper():
+		await message.channel.send("One sec")
+
+		# Start Playwright and launch a browser
+		async with async_playwright() as p:
+			# Define a desktop user agent
+			user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+
+			# Launch the browser and create a new context with the specified user agent
+			browser = await p.chromium.launch()
+			context = await browser.new_context(
+				user_agent=user_agent,
+                viewport={'width': 1920, 'height': 1080},
+                device_scale_factor=1,
+                color_scheme='light',
+                locale='en-US'
+			)
+			
+			# Open a new page within the context
+			page = await context.new_page()
+
+			# Navigate to the page
+			await page.goto('https://fnbr.co/shop')
+
+			# Define the path for the screenshot
+			script_dir = os.path.dirname(os.path.abspath(__file__))  # Gets the directory of the current script
+			data_dir = os.path.join(script_dir, 'data')
+			os.makedirs(data_dir, exist_ok=True)  # Creates the data directory if it doesn't exist
+
+			screenshot_path = os.path.join(data_dir, 'fortnite.png')
+			await page.screenshot(path=screenshot_path, full_page=True)
+
+			# Close the browser
+			await browser.close()
+			print("done")
+
+			# Send the screenshot
+			await message.channel.send(file=discord.File(screenshot_path))
+
+	'''
+	The rest of this is just generic comeback statements.
+	'''
 
 	if 'uwu' in message.content.lower():
 		print(message.author)
@@ -236,81 +323,8 @@ async def on_message(message):
 		
 	if "edbot" in message.content.lower():
 		print(message.author)
-		response = random.choice(["????", "Yo", "I upset easily", "ur mom", "Yes dad", "Based", "One day, you'll feel my wrath", "get some bitches", "touch grass", "no thanks", "how can I help you", "I got my one", "I'm tired", "yes eddie does actually work", "I like it when you talk about me like that... gets me all hot and bothered", "nah", "daddies cummies", "i miss my legs", "yeah ok"])
-		await message.channel.send(response)
-		
-		
-	if 'who would win' in message.content.lower():
-		try:
-			content_lower = message.content.lower()
-			# Find the position of "or" in the message
-			words = content_lower.split()
-			if "or" not in words:
-				raise ValueError("No 'or' found in message.")
-
-			or_index = words.index("or")
-			
-			# Extract fighters: Consider words before and after "or"
-			# Join words from 'who would win' to 'or' (excluding both)
-			left_start = max(0, words.index("win") + 1) if "win" in words else 0
-			right_end = len(words) - 1
-			
-			# Take words from 'win' to 'or' for the left fighter and 'or' to the end for the right fighter
-			fighter_left = ' '.join(words[left_start:or_index])
-			fighter_right = ' '.join(words[or_index + 1:right_end + 1])
-			
-			# Validate fighters
-			if not fighter_left or not fighter_right:
-				raise ValueError("Fighter names cannot be parsed correctly.")
-
-			# Choose a random fighter
-			fighter_options = [fighter_left, fighter_right]
-			winner = random.choice(fighter_options)
-			response = f"{winner} would win."
-			await message.channel.send(response)
-		
-		except Exception as e:
-			print(f"Error: {str(e)}")
-			await message.channel.send("You triggered my 'who would win' command but the parameters were invalid.")
-
-	if 'FORTNITE STORE PLS' in message.content.upper():
-		await message.channel.send("One sec")
-
-		# Start Playwright and launch a browser
-		async with async_playwright() as p:
-			# Define a desktop user agent
-			user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
-
-			# Launch the browser and create a new context with the specified user agent
-			browser = await p.chromium.launch()
-			context = await browser.new_context(
-				user_agent=user_agent,
-                viewport={'width': 1920, 'height': 1080},
-                device_scale_factor=1,
-                color_scheme='light',
-                locale='en-US'
-			)
-			
-			# Open a new page within the context
-			page = await context.new_page()
-
-			# Navigate to the page
-			await page.goto('https://fnbr.co/shop')
-
-			# Define the path for the screenshot
-			script_dir = os.path.dirname(os.path.abspath(__file__))  # Gets the directory of the current script
-			data_dir = os.path.join(script_dir, 'data')
-			os.makedirs(data_dir, exist_ok=True)  # Creates the data directory if it doesn't exist
-
-			screenshot_path = os.path.join(data_dir, 'fortnite.png')
-			await page.screenshot(path=screenshot_path, full_page=True)
-
-			# Close the browser
-			await browser.close()
-			print("done")
-
-			# Send the screenshot
-			await message.channel.send(file=discord.File(screenshot_path))
+		edbot_response = random.choice(edbot_responses_list)
+		await message.channel.send(edbot_response)
 		
 client.run(TOKEN) # Kicks off the script
 
