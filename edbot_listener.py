@@ -87,7 +87,8 @@ Discord EdBot/WeatherBot is in, this block is triggered.
 async def on_message(message):
 	# A jerk function that says mean things to the targeted user.
 	if str(message.author) == bullied_user:
-		chance_to_bully = random.randrange(1, 50)
+		chance_to_bully = random.randrange(1, 3)
+		print('dylans talking')
 		if chance_to_bully == 2:
 			response = random.choice(bully_words)
 			await message.channel.send(response)
@@ -104,28 +105,43 @@ async def on_message(message):
 		speaker_loop[0] = 1
 	if speaker_loop[0] >= 10:
 		speaker_loop[0] = 0
-		response = "Hey " + message.author.mention + " can you like quiet down"
+		response = "Hey " + message.author.mention + " can you like quiet down?"
 		await message.channel.send(response)			
 		
 
 	# If ANY part of someones message contains a city in city_list, then we proceed. 
 	if any(cities.lower() in message.content.lower() for cities in city_list):
 		try: 
-			# This is a try block because sometimes some will say a word that accidentitly cpntains a city word.
-			# For example "experienced" contains the city "Erie" and because of that, the code block will crash bc of the spaghetti code below 
-			print('running city command')
-			print(message.author)
-			message_list = message.content.lower()
-			message_list = message_list.split(" ")
-			city_listset = set(city_list) # No idea
-			locations = [i for i, item in enumerate(message_list) if item in city_listset] #LMAO on the logic.  This looks for what city the user said in their message.
-			observation = mgr.weather_at_place(message_list[locations[0]] + ", US")
-			w = observation.weather
-			w.temperature('fahrenheit')['temp'] # AMERICA
-			response = f"Hey {weather_person}! Here is the weather in {message_list[locations[0]].capitalize()}: {w.detailed_status.lower()}"
-			await message.channel.send(response)
-		except:
-			await message.channel.send("lol")
+        # Normalize the message content and split into words
+			message_content = message.content.lower()
+			words_in_message = set(message_content.split())
+
+			# Create a set from city_list with lowercase for comparison
+			city_listset = {city.lower() for city in city_list}
+
+			# Find intersection of sets to get matching city names
+			matched_cities = words_in_message.intersection(city_listset)
+			
+			if matched_cities:
+				print('Running city command')
+				print(message.author)
+				
+				# Handling multiple cities in one message; just taking the first matched city for simplicity
+				first_matched_city = matched_cities.pop()
+				
+				# Fetch weather using the matched city
+				observation = mgr.weather_at_place(first_matched_city + ", US")
+				w = observation.weather
+				temperature = w.temperature('fahrenheit')['temp']
+				detailed_status = w.detailed_status.lower()
+
+				response = f"Hey {weather_person}! Here is the weather in {first_matched_city.capitalize()}: {detailed_status}, with a temperature of {temperature}°F."
+				await message.channel.send(response)
+
+		except Exception as e:
+			# Proper error logging
+			print(f"An error occurred: {str(e)}")
+			await message.channel.send("I pooped.")
 
 	if 'uwu' in message.content.lower():
 		print(message.author)
