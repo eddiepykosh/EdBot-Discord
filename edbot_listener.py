@@ -242,13 +242,35 @@ async def on_message(message):
 		
 	if 'who would win' in message.content.lower():
 		try:
-			message_list = message.content.lower()
-			message_list = message_list.split(" ")
-			or_location = message_list.index("or")
-			fighter_options = [(message_list[or_location + 1]), (message_list[or_location - 1])] # There is a bug here where the option to the left of the "Or" must be a single word and cannot be multiple words
-			response = random.choice(fighter_options) + " would win." # IDK if I just had bad RNG but this will occassionaly favor the first selection
+			content_lower = message.content.lower()
+			# Find the position of "or" in the message
+			words = content_lower.split()
+			if "or" not in words:
+				raise ValueError("No 'or' found in message.")
+
+			or_index = words.index("or")
+			
+			# Extract fighters: Consider words before and after "or"
+			# Join words from 'who would win' to 'or' (excluding both)
+			left_start = max(0, words.index("win") + 1) if "win" in words else 0
+			right_end = len(words) - 1
+			
+			# Take words from 'win' to 'or' for the left fighter and 'or' to the end for the right fighter
+			fighter_left = ' '.join(words[left_start:or_index])
+			fighter_right = ' '.join(words[or_index + 1:right_end + 1])
+			
+			# Validate fighters
+			if not fighter_left or not fighter_right:
+				raise ValueError("Fighter names cannot be parsed correctly.")
+
+			# Choose a random fighter
+			fighter_options = [fighter_left, fighter_right]
+			winner = random.choice(fighter_options)
+			response = f"{winner} would win."
 			await message.channel.send(response)
-		except:
+		
+		except Exception as e:
+			print(f"Error: {str(e)}")
 			await message.channel.send("You triggered my 'who would win' command but the parameters were invalid.")
 
 	if 'FORTNITE STORE PLS' in message.content.upper():
