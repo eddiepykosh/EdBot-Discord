@@ -27,7 +27,10 @@ script_dir = os.path.dirname(__file__)
 speaker_loop = [0]
 current_speaker = ['tom nook'] # I needed a inital name so I used Tom Nook :)
 city_list = ['norfolk']
+bully_words = ['nah']
 
+# Gets the Weather Lady
+weather_person = os.getenv('WEATHER_PERSON')
 # This part gets cites from  cities.txt in assets/text.
 city_file_path = os.path.join(script_dir, 'assets', 'text', 'cities.txt')
 try:
@@ -44,12 +47,19 @@ for i in range(len(city_list)):
     city_list[i] = city_list[i].lower()
 print(city_list)
 
-# Gets the Weather Lady
-weather_person = os.getenv('WEATHER_PERSON')
 
 # EdBot has some anger issues.  You can set a user for him to bully in the .env file
 bullied_user = os.getenv('BULLIED_USER')
-bully_words = ['fuck you', 'tiny mouth', 'tuba', 'fuck blood bowl', 'I shall forward this to your grad school', 'lol comm banned', 'you are giving me a panic attack', 'dylan PLEASE', "I'm BEGGING", "Watch out for the guy on the hill.. be sure to KOS.", "Eddie has a higher KD than you"] #Mean words for WeatherBot to say to a targeted user
+# This part gets cites from  bully_words.txt in assets/text.
+bully_file_path = os.path.join(script_dir, 'assets', 'text', 'bully_words.txt')
+try:
+	with open(bully_file_path, 'r') as file:
+        # Read the file
+		bully_file_content = file.read()
+		bully_words += bully_file_content.split("\n")
+		file.close()
+except FileNotFoundError:
+    print(f"The file {bully_file_path} was not found.")
 
 # Get Discord and Weather Manager tokens from .env file
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -94,7 +104,7 @@ async def on_message(message):
 		speaker_loop[0] = 1
 	if speaker_loop[0] >= 10:
 		speaker_loop[0] = 0
-		response = "Hey " + message.author.mention + " can you SHUT THE FUCK UP"
+		response = "Hey " + message.author.mention + " can you like quiet down"
 		await message.channel.send(response)			
 		
 
