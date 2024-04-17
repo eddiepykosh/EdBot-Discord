@@ -16,7 +16,7 @@ from discord.ext import commands
 # .env stuff
 from dotenv import load_dotenv
 import asyncio
-from pyppeteer import launch
+from playwright.async_api import async_playwright
 
 load_dotenv()
 
@@ -275,14 +275,42 @@ async def on_message(message):
 
 	if 'FORTNITE STORE PLS' in message.content.upper():
 		await message.channel.send("One sec")
-		browser = await launch()
-		page = await browser.newPage()
-		await page.setViewport({'width': 1920, 'height': 1080})
-		await page.goto('https://fnbr.co/shop')
-		await page.screenshot({'path': 'C:/Users/Administrator/WeaterBot/screen/fortnite.png', 'fullPage': True})
-		await browser.close()
-		print("done")
-		await message.channel.send(file=discord.File('C:/Users/Administrator/WeaterBot/screen/fortnite.png'))
+
+		# Start Playwright and launch a browser
+		async with async_playwright() as p:
+			# Define a desktop user agent
+			user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+
+			# Launch the browser and create a new context with the specified user agent
+			browser = await p.chromium.launch()
+			context = await browser.new_context(
+				user_agent=user_agent,
+                viewport={'width': 1920, 'height': 1080},
+                device_scale_factor=1,
+                color_scheme='light',
+                locale='en-US'
+			)
+			
+			# Open a new page within the context
+			page = await context.new_page()
+
+			# Navigate to the page
+			await page.goto('https://fnbr.co/shop')
+
+			# Define the path for the screenshot
+			script_dir = os.path.dirname(os.path.abspath(__file__))  # Gets the directory of the current script
+			data_dir = os.path.join(script_dir, 'data')
+			os.makedirs(data_dir, exist_ok=True)  # Creates the data directory if it doesn't exist
+
+			screenshot_path = os.path.join(data_dir, 'fortnite.png')
+			await page.screenshot(path=screenshot_path, full_page=True)
+
+			# Close the browser
+			await browser.close()
+			print("done")
+
+			# Send the screenshot
+			await message.channel.send(file=discord.File(screenshot_path))
 		
 client.run(TOKEN) # Kicks off the script
 

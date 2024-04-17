@@ -5,7 +5,7 @@ discord.py==2.3.2
 ffmpeg==1.4
 Flask==3.0.2
 pyowm==3.3.0
-pyppeteer
+playwright
 python-dotenv==1.0.1
 twilio==9.0.4
 wolframalpha==5.0.0
