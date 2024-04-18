@@ -38,16 +38,17 @@ reddit = asyncpraw.Reddit(
 yt_dlp.utils.bug_reports_message = lambda: ''
 
 ytdl_format_options = {
-    'format': 'bestaudio/best',
-    'restrictfilenames': True,
-    'noplaylist': True,
-    'nocheckcertificate': True,
-    'ignoreerrors': False,
-    'logtostderr': False,
-    'quiet': False,
-    'no_warnings': True,
-    'default_search': 'auto',
-    'source_address': '0.0.0.0' # bind to ipv4 since ipv6 addresses cause issues sometimes
+	'format': 'bestaudio/best',
+	'outtmpl': 'data/%(title)s.%(ext)s',  # Saves files under the `data/` directory
+	'restrictfilenames': True,
+	'noplaylist': True,
+	'nocheckcertificate': True,
+	'ignoreerrors': False,
+	'logtostderr': False,
+	'quiet': True,
+	'no_warnings': True,
+	'default_search': 'auto',
+	'source_address': '0.0.0.0'  # Bind to ipv4 since ipv6 addresses cause issues sometimes
 }
 
 ffmpeg_options = {
@@ -57,21 +58,32 @@ ffmpeg_options = {
 ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
 class YTDLSource(discord.PCMVolumeTransformer):
-    def __init__(self, source, *, data, volume=0.5):
-        super().__init__(source, volume)
-        self.data = data
-        self.title = data.get('title')
-        self.url = ""
+	def __init__(self, source, *, data, volume=0.5):
+		super().__init__(source, volume)
+		self.data = data
+		self.title = data.get('title')
+		self.url = ""
 
-    @classmethod
-    async def from_url(cls, url, *, loop=None, stream=False):
-        loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
-        if 'entries' in data:
-            # take first item from a playlist
-            data = data['entries'][0]
-        filename = data['title'] if stream else ytdl.prepare_filename(data)
-        return filename
+	@classmethod
+	async def from_url(cls, url, *, loop=None, stream=False):
+		loop = loop or asyncio.get_event_loop()
+		data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+		
+		if 'entries' in data:
+			# take first item from a playlist
+			data = data['entries'][0]
+
+		# Ensure the /data directory exists
+		if not os.path.exists('data'):
+			os.makedirs('data')
+
+		filename = data['title'] if stream else ytdl.prepare_filename(data)
+		
+		# Adjust filename path to include data/ prefix explicitly, ensuring compatibility
+		if not filename.startswith('data/'):
+			filename = os.path.join('data', os.path.basename(filename))
+
+		return filename
 
 #Sends a gif in the channel where called and then joins to play some audio and then leave
 async def audioPlayer(ctx, audioFile, textToSend):
@@ -440,7 +452,7 @@ async def play(ctx,url):
 			print("Attempting Download")
 			await ctx.send("Downloading...")
 			filename = await YTDLSource.from_url(url, loop=bot.loop)
-			print("I did it")
+			print("Download completed")
 			await audioPlayer(ctx, filename, '**Now playing:** {}'.format(filename))
 			# voice_channel.play(discord.FFmpegPCMAudio(executable="ffmpeg", source=filename)) 
 	except Exception as e:
