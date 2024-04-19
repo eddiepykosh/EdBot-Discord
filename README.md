@@ -2,6 +2,8 @@
 EdBot - My Son
 
 note self: $ apt install libffi-dev libnacl-dev python3-dev
+sudo apt update
+sudo apt install ffmpeg
 
 
 Hello and welcome to my Python spaghetti code named EdBot!

@@ -6,7 +6,6 @@ from discord.ext import commands, tasks #More Discord
 import time
 import ffmpeg #for playing audio files through commandline to discord
 import asyncpraw #Reddit Async Library
-from twilio.rest import Client #Call/Text Message API
 from dotenv import load_dotenv #env stuff
 import asyncio #For Async commands bc discord needs them
 from boto3 import Session #for TTS
@@ -21,10 +20,6 @@ import yt_dlp
 
 load_dotenv()
 
-#Twilio Stuff
-account_sid = os.getenv('TWILIO_ACCOUNT_ID')
-auth_token = os.getenv('TWILIO_AUTH_TOKEN')
-TwilioPhoneNumber = os.getenv('TWILIO_PHONE_NUMBER')
 
 mathID = os.getenv('WRA_MATH_KEY')
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -150,42 +145,6 @@ bot = commands.Bot(command_prefix='./',intents=intents)
 @bot.event
 async def on_ready():
 	print('im here') #Giving EdBot Depression
-
-#This part was meant to be a rudimentary exercise that ended up taking me 4 hours
-@bot.command(name='addcontact', help='add a contact')
-async def contactadd(ctx, *,contactData):
-	discordInput = contactData
-	with open('contacts.json') as json_file:
-		pythonDict = json.load(json_file)
-		json_file.close()
-	discordInputList = discordInput.split(" ")
-	if len(discordInputList) == 3: #Checks if contact has a first and last name or just a first name and acts accordingly
-		contactName = discordInputList.pop(0) + " " + discordInputList.pop(0)
-	else:
-		contactName = discordInputList.pop(0)
-	contactPhone = discordInputList.pop(0)
-	if len(contactPhone) == 10: #make sure number is valid bc I dont want people to call 911 on my bot
-		newContact = {
-			contactName.lower(): contactPhone
-		}
-		print(pythonDict)
-		pythonDict.update(newContact)
-		print(pythonDict)
-		with open("contacts.json", "w") as f:
-			json.dump(pythonDict, f)
-			f.close()
-		await ctx.send("Contact Added")
-	else:
-		await ctx.send("Invalid phone number idiot")
-
-@bot.command(name='printcontacts', help='Print all known contact')
-async def printcontacts(ctx):
-	with open('contacts.json') as json_file:
-		pythonDict = json.load(json_file)
-		json_file.close()
-	print(pythonDict)
-	#Dear Noah, JSON cleaning is for nerds
-	await ctx.send(str(pythonDict))
 	
 @bot.command(name='meme', help='when someone sends an absolute MEME')
 async def meme(ctx):
@@ -310,108 +269,6 @@ async def fortnite(ctx):
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def valorant(ctx):
 	await callingAllGamers(ctx, 'VALORANT_PEOPLE', "Valorant time")
-
-#My pride and joy feature.  You can text someone from Discord
-@bot.command(name='text', help='text someone')
-@commands.cooldown(1, 15, commands.BucketType.user)
-async def text(ctx, *,whatToText):
-	stringList = whatToText.split(" ") #breaks everything after ./text into a list
-	print(ctx.author)
-	with open('contacts.json') as json_file: #Read in the contacts file
-		pythonDict = json.load(json_file)
-		json_file.close()
-	smallWhattoText = whatToText.lower() #All contacts are in lowercase in the JSON.  This changes everything after ./text into lowercase
-	discordNameList = smallWhattoText.split(" ") #Same thing as stringList
-	try: #This checks if the first word after ./text is a phone number
-		contactNumber = int(discordNameList[0]) #A phone number will always be an int 
-		contactNumber = str(contactNumber) #Store found number
-		stringList.pop(0) #kicks phone number out of the stringList that will be send to our target
-	except: #This block triggers if the above try failed.  Now we will check if the first word after ./text is in our contacts JSON
-		contactNumber = pythonDict.get(discordNameList[0]) #checks if a FIRST NAME only contact was found 
-		if contactNumber is None: #We didn't find a FIRST NAME ONLY contact. Checking First AND Last name
-			try:
-				fullName = discordNameList[0] + " " + discordNameList[1]
-				contactNumber = pythonDict.get(fullName)
-				stringList.pop(0)
-				stringList.pop(0)
-			except:
-				contactNumber = "INVALID" #For if the discordNameList is too short
-			if contactNumber is None: #Couldn't find a valid phone number or a contact 
-				contactNumber = "INVALID"
-		else:
-			stringList.pop(0) #Found a FIRST NAME ONLY contact
-			
-	#This whole section above should be it's own function
-	
-	try: #Checks the results of the above logic
-		phoneNumber = int(contactNumber)
-		phoneNumber = str(phoneNumber)
-	except:
-		await ctx.send("No contact found")
-	if len(phoneNumber) == 10: #Makes sure number is valid (Don't want people texting 911)
-		messageContent = " ".join(stringList)
-		textAPI = Client(account_sid, auth_token)
-		message = textAPI.messages \
-						.create(
-							 body="Message from EdBot: " + messageContent,
-							 from_=TwilioPhoneNumber,
-							 to='+1' + phoneNumber
-						 )
-
-		print(message.sid)
-		await ctx.send("Message sent to " + phoneNumber)
-	else:
-		await ctx.send("invalid phone number")
-	
-@bot.command(name='call', help='call someone')
-@commands.cooldown(1, 15, commands.BucketType.user)
-async def call(ctx, *,whatToText):
-	#Due to calls being alot more serious, user's must supply the phone number 
-	#Also I'm lazy
-	print(ctx.author)
-	stringList = whatToText.split(" ")
-	phoneNumber = stringList.pop(0)
-	if len(phoneNumber) == 10:
-		messageContent = " ".join(stringList)
-		callAPI = Client(account_sid, auth_token)
-		call = callAPI.calls.create(
-							 url='http://files.pykosh.com/files/walled.mp3',
-							 from_ =TwilioPhoneNumber,
-							 to='+1' + phoneNumber,
-							 method = 'GET'
-						 )
-
-		print(call.sid)
-		await ctx.send("call sent.")
-	else:
-		await ctx.send("invalid phone number")
-		
-@bot.command(name='customcall', help='call someone by supplying your own mp3')
-@commands.cooldown(1, 15, commands.BucketType.user)
-async def customcall(ctx, *,whatToText):
-	#Due to calls being alot more serious, user's must supply the phone number 
-	#Also I'm lazy
-	#There is no code here to check if link is a actual valid MP3.
-	#If the MP3 is invalid the TWILIO API will play a "Call could not be completed" to target phone number
-	print(ctx.author)
-	stringList = whatToText.split(" ")
-	phoneNumber = stringList.pop(0)
-	mp3Link = stringList.pop(0)
-	print(mp3Link)
-	if len(phoneNumber) == 10: #Gotta make sure no one's doing anyone no-no's
-		messageContent = " ".join(stringList)
-		callAPI = Client(account_sid, auth_token)
-		call = callAPI.calls.create(
-							 url= mp3Link,
-							 from_ =TwilioPhoneNumber,
-							 to='+1' + phoneNumber,
-							 method = 'GET' #Gotta use Get NOT POST bc most websites do not support POST for downloading stuff
-						 )
-
-		print(call.sid)
-		await ctx.send("call sent.")
-	else:
-		await ctx.send("invalid phone number")
 
 #These next 4 are pretty self explanitory, just a shitpost command
 @bot.command(name='kurt', help='my opinion on kurt thomspon')
