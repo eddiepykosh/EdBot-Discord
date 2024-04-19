@@ -33,17 +33,17 @@ reddit = asyncpraw.Reddit(
 yt_dlp.utils.bug_reports_message = lambda: ''
 
 ytdl_format_options = {
-	'format': 'bestaudio/best',
-	'outtmpl': 'data/%(title)s.%(ext)s',  # Saves files under the `data/` directory
-	'restrictfilenames': True,
-	'noplaylist': True,
-	'nocheckcertificate': True,
-	'ignoreerrors': False,
-	'logtostderr': False,
-	'quiet': True,
-	'no_warnings': True,
-	'default_search': 'auto',
-	'source_address': '0.0.0.0'  # Bind to ipv4 since ipv6 addresses cause issues sometimes
+    'format': 'bestaudio/best',
+    'outtmpl': 'data/%(title)s.%(ext)s',  # Saves files under the `data/` directory
+    'restrictfilenames': True,
+    'noplaylist': True,
+    'nocheckcertificate': True,
+    'ignoreerrors': False,
+    'logtostderr': False,
+    'quiet': True,
+    'no_warnings': True,
+    'default_search': 'ytsearch',
+    'source_address': '0.0.0.0'  # Bind to ipv4 since ipv6 addresses cause issues sometimes
 }
 
 ffmpeg_options = {
@@ -53,32 +53,33 @@ ffmpeg_options = {
 ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
 class YTDLSource(discord.PCMVolumeTransformer):
-	def __init__(self, source, *, data, volume=0.5):
-		super().__init__(source, volume)
-		self.data = data
-		self.title = data.get('title')
-		self.url = ""
+    def __init__(self, source, *, data, volume=0.5):
+        super().__init__(source, volume)
+        self.data = data
+        self.title = data.get('title')
+        self.url = data.get('webpage_url')
 
-	@classmethod
-	async def from_url(cls, url, *, loop=None, stream=False):
-		loop = loop or asyncio.get_event_loop()
-		data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
-		
-		if 'entries' in data:
-			# take first item from a playlist
-			data = data['entries'][0]
+    @classmethod
+    async def from_url(cls, search, *, loop=None, stream=False):
+        loop = loop or asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(search, download=not stream))
+        
+        if 'entries' in data:
+            # take first item from the results
+            data = data['entries'][0]
 
-		# Ensure the /data directory exists
-		if not os.path.exists('data'):
-			os.makedirs('data')
+        # Ensure the /data directory exists
+        if not os.path.exists('data'):
+            os.makedirs('data')
 
-		filename = data['title'] if stream else ytdl.prepare_filename(data)
-		
-		# Adjust filename path to include data/ prefix explicitly, ensuring compatibility
-		if not filename.startswith('data/'):
-			filename = os.path.join('data', os.path.basename(filename))
+        filename = data['title'] if stream else ytdl.prepare_filename(data)
+        
+        # Adjust filename path to include data/ prefix explicitly, ensuring compatibility
+        if not filename.startswith('data/'):
+            filename = os.path.join('data', os.path.basename(filename))
 
-		return filename
+        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+
 
 #Sends a gif in the channel where called and then joins to play some audio and then leave
 async def audioPlayer(ctx, audioFile, textToSend):
@@ -145,22 +146,6 @@ bot = commands.Bot(command_prefix='./',intents=intents)
 @bot.event
 async def on_ready():
 	print('im here') #Giving EdBot Depression
-	
-@bot.command(name='meme', help='when someone sends an absolute MEME')
-async def meme(ctx):
-	await audioPlayer(ctx, 'notfunny.mp3', "https://c.tenor.com/BM-QtYCZIloAAAAd/not-funny-didnt-laugh.gif")
-
-@bot.command(name='walled', help='GET TILTED')
-async def walled(ctx):
-	await audioPlayer(ctx, 'walled.mp3', "http://files.pykosh.com/files/gif/wall.gif")
-
-@bot.command(name='PVS', help='GET HYPER')
-async def walled(ctx):
-	await audioPlayer(ctx, 'PVS.mp3', "I'm sorry")
-	
-@bot.command(name='bamba', help='GET SINGING')
-async def walled(ctx):
-	await audioPlayer(ctx, 'LaBamba.mp3', "I'm sorry")
 
 #For if someone sends an annoyingly long TTS, you can force EdBot out of your VC
 @bot.command(name='fuckoff', help='forces EdBot out of Voice')
@@ -258,6 +243,103 @@ async def redditRandom(ctx, *,redditSub):
 	except:
 		await ctx.send("reddit command failed :(")
 
+#Yells at user if they are on cooldown 
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        await ctx.send('This command is on cooldown, you can use it in ' + str(round(error.retry_after, 2)) + ' seconds' )
+        
+
+@bot.command(name='play', help='To play song')
+async def play(ctx,url):
+	try:
+		async with ctx.typing():
+			print("Attempting Download")
+			await ctx.send("Downloading...")
+			filename = await YTDLSource.from_url(url, loop=bot.loop)
+			print("Download completed")
+			await audioPlayer(ctx, filename, '**Now playing:** {}'.format(filename))
+			# voice_channel.play(discord.FFmpegPCMAudio(executable="ffmpeg", source=filename)) 
+	except Exception as e:
+		await ctx.send("Something went wrong: " + e)
+
+# Assuming bot initialization and event loop are defined elsewhere in your script
+@bot.command(name='search', help='To play a song from YouTube')
+async def play(ctx, *, search: str):
+    try:
+        async with ctx.typing():
+            filename = await YTDLSource.from_url(search, loop=bot.loop)
+            voice_channel = ctx.author.voice.channel
+            if not ctx.voice_client:
+                await voice_channel.connect()
+            else:
+                await ctx.voice_client.move_to(voice_channel)
+            print("Download completed")
+            await ctx.send('**Now playing:** {}'.format(filename.title))
+            ctx.voice_client.play(filename, after=lambda e: print('Player error: %s' % e) if e else None)
+    except Exception as e:
+        await ctx.send("Something went wrong: " + str(e))
+
+@bot.command(name='pause', help='This command pauses the song')
+async def pause(ctx):
+    voice_client = ctx.message.guild.voice_client
+    if voice_client.is_playing():
+        await voice_client.pause()
+    else:
+        await ctx.send("The bot is not playing anything at the moment.")
+    
+@bot.command(name='resume', help='Resumes the song')
+async def resume(ctx):
+    voice_client = ctx.message.guild.voice_client
+    if voice_client.is_paused():
+        await voice_client.resume()
+    else:
+        await ctx.send("The bot was not playing anything before this. Use play_song command")
+
+@bot.command(name='stop', help='Stops the song')
+async def stop(ctx):
+    voice_client = ctx.message.guild.voice_client
+    if voice_client.is_playing():
+        await voice_client.stop()
+    else:
+        await ctx.send("The bot is not playing anything at the moment.")
+
+@bot.command(name='join', help='Tells the bot to join the voice channel')
+async def join(ctx):
+    if not ctx.message.author.voice:
+        await ctx.send("{} is not connected to a voice channel".format(ctx.message.author.name))
+        return
+    else:
+        channel = ctx.message.author.voice.channel
+    await channel.connect()
+
+@bot.command(name='meme', help='when someone sends an absolute MEME')
+async def meme(ctx):
+	await audioPlayer(ctx, 'notfunny.mp3', "https://c.tenor.com/BM-QtYCZIloAAAAd/not-funny-didnt-laugh.gif")
+
+@bot.command(name='walled', help='GET TILTED')
+async def walled(ctx):
+	await audioPlayer(ctx, 'walled.mp3', "http://files.pykosh.com/files/gif/wall.gif")
+
+@bot.command(name='PVS', help='GET HYPER')
+async def walled(ctx):
+	await audioPlayer(ctx, 'PVS.mp3', "I'm sorry")
+	
+@bot.command(name='bamba', help='GET SINGING')
+async def walled(ctx):
+	await audioPlayer(ctx, 'LaBamba.mp3', "I'm sorry")
+
+@bot.command(name='ben', help='god help us all')
+@commands.cooldown(1, 5, commands.BucketType.user)
+async def ben(ctx):
+	benVoice = random.choice(["ben/ben_laugh.mp3" , "ben/ben_yes.mp3", "ben/ben_no.mp3", "ben/ben_grunt.mp3"])
+	await audioPlayer(ctx, benVoice, "calling ben")
+	
+@bot.command(name='bow', help='LETS GET IT')
+@commands.cooldown(1, 5, commands.BucketType.user)
+async def ben(ctx):
+	await audioPlayer(ctx, "BOW.webm", "on it")
+
 #Pings the people listed in the .env that it's time to game		
 @bot.command(name='fortnite', help='fortnite')
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
@@ -294,74 +376,6 @@ async def genz(ctx):
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def cctuba(ctx):
 	await copyPasta(ctx, "copy_pastas/cctuba.txt")
-	
-#Yells at user if they are on cooldown 
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandOnCooldown):
-        await ctx.send('This command is on cooldown, you can use it in ' + str(round(error.retry_after, 2)) + ' seconds' )
-        
-
-@bot.command(name='play', help='To play song')
-async def play(ctx,url):
-	try:
-		async with ctx.typing():
-			print("Attempting Download")
-			await ctx.send("Downloading...")
-			filename = await YTDLSource.from_url(url, loop=bot.loop)
-			print("Download completed")
-			await audioPlayer(ctx, filename, '**Now playing:** {}'.format(filename))
-			# voice_channel.play(discord.FFmpegPCMAudio(executable="ffmpeg", source=filename)) 
-	except Exception as e:
-		await ctx.send("Something went wrong: " + e)
-
-@bot.command(name='play_song', help='To play song')
-async def play(ctx,url):
-	await ctx.send("It's ./play now")
-
-@bot.command(name='pause', help='This command pauses the song')
-async def pause(ctx):
-    voice_client = ctx.message.guild.voice_client
-    if voice_client.is_playing():
-        await voice_client.pause()
-    else:
-        await ctx.send("The bot is not playing anything at the moment.")
-    
-@bot.command(name='resume', help='Resumes the song')
-async def resume(ctx):
-    voice_client = ctx.message.guild.voice_client
-    if voice_client.is_paused():
-        await voice_client.resume()
-    else:
-        await ctx.send("The bot was not playing anything before this. Use play_song command")
-
-@bot.command(name='stop', help='Stops the song')
-async def stop(ctx):
-    voice_client = ctx.message.guild.voice_client
-    if voice_client.is_playing():
-        await voice_client.stop()
-    else:
-        await ctx.send("The bot is not playing anything at the moment.")
-
-@bot.command(name='join', help='Tells the bot to join the voice channel')
-async def join(ctx):
-    if not ctx.message.author.voice:
-        await ctx.send("{} is not connected to a voice channel".format(ctx.message.author.name))
-        return
-    else:
-        channel = ctx.message.author.voice.channel
-    await channel.connect()
-	
-@bot.command(name='ben', help='god help us all')
-@commands.cooldown(1, 5, commands.BucketType.user)
-async def ben(ctx):
-	benVoice = random.choice(["ben/ben_laugh.mp3" , "ben/ben_yes.mp3", "ben/ben_no.mp3", "ben/ben_grunt.mp3"])
-	await audioPlayer(ctx, benVoice, "calling ben")
-	
-@bot.command(name='bow', help='LETS GET IT')
-@commands.cooldown(1, 5, commands.BucketType.user)
-async def ben(ctx):
-	await audioPlayer(ctx, "BOW.webm", "on it")
 
 bot.run(TOKEN) #Kickoff EdBot
 
