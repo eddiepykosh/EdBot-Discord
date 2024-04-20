@@ -15,7 +15,6 @@ from pyowm.utils import timestamps
 from discord.ext import commands
 # .env stuff
 from dotenv import load_dotenv
-import asyncio
 from playwright.async_api import async_playwright
 
 load_dotenv()
@@ -23,7 +22,7 @@ load_dotenv()
 # Find where script is running
 script_dir = os.path.dirname(__file__)
 
-#initalize Lists
+# initalize Lists
 speaker_loop = [0]
 current_speaker = ['tom nook']
 city_list = ['norfolk']
@@ -98,7 +97,7 @@ Discord EdBot/WeatherBot is in, this block is triggered.
 async def on_message(message):
 	# A jerk function that says mean things to the targeted user.
 	if str(message.author) == bullied_user:
-		chance_to_bully = random.randrange(1, 3)
+		chance_to_bully = random.randrange(1, 20)
 		print('dylans talking')
 		if chance_to_bully == 2:
 			response = random.choice(bully_words)
