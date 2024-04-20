@@ -1,12 +1,6 @@
 # EdBot-Discord
 EdBot 2.0 - GPT to the rescue
 
-note self: $ apt install libffi-dev libnacl-dev python3-dev
-sudo apt install ffmpeg
-
-
-Hello and welcome to my Python spaghetti code named EdBot!
-
 Origin:
 ---
 EdBot was orginally a bot named WeatherBot that meant to annoy people on Discord by
