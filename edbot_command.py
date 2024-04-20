@@ -1,25 +1,24 @@
-#I'm sorry for all the imports
 import os
 import random
-import discord #discord stuff
-from discord.ext import commands, tasks #More Discord
+import discord 
+from discord.ext import commands, tasks 
 import time
-import ffmpeg #for playing audio files through commandline to discord
-import asyncpraw #Reddit Async Library
-from dotenv import load_dotenv #env stuff
-import asyncio #For Async commands bc discord needs them
-from boto3 import Session #for TTS
-from botocore.exceptions import BotoCoreError, ClientError #More TTS
-from contextlib import closing #Even More TTS
+import ffmpeg # for playing audio files through commandline to discord
+import asyncpraw # Reddit Async Library
+from dotenv import load_dotenv # env stuff
+import asyncio # For Async commands bc discord needs them
+from boto3 import Session # for TTS
+from botocore.exceptions import BotoCoreError, ClientError # More TTS
+from contextlib import closing # Even More TTS
 import sys 
 import subprocess 
-import json #For Contacts File
 import wolframalpha
 import yt_dlp
 
 
 load_dotenv()
-
+# Find where script is running
+script_dir = os.path.dirname(__file__)
 
 mathID = os.getenv('WRA_MATH_KEY')
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -29,6 +28,8 @@ reddit = asyncpraw.Reddit(
     client_secret=os.getenv('CLIENT_SECRET'),
     user_agent=os.getenv('USER_AGENT'),
 )
+
+# Logic for Youtube Downloader
 
 yt_dlp.utils.bug_reports_message = lambda: ''
 
@@ -80,8 +81,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
-
-#Sends a gif in the channel where called and then joins to play some audio and then leave
+# Begin universal functions
+# Sends a message in the channel where called and then joins to play some audio and then leave
 async def audioPlayer(ctx, audioFile, textToSend):
 	
 	if ctx.voice_client is None:
@@ -98,7 +99,7 @@ async def audioPlayer(ctx, audioFile, textToSend):
 			if not vc.is_playing():
 				print("trying1")
 				vc.play(audio_source, after=None)
-				vc.pause() #This and the async sleep is needed or else the audio will be way faster then it should
+				vc.pause() # This and the async sleep is needed or else the audio will be way faster then it should
 				await asyncio.sleep(2)
 				vc.resume()
 				await ctx.send(textToSend)
@@ -115,22 +116,38 @@ async def audioPlayer(ctx, audioFile, textToSend):
 			if not vc.is_playing():
 				print("trying1")
 				vc.play(audio_source, after=None)
-				vc.pause() #This and the async sleep is needed or else the audio will be way faster then it should
+				vc.pause() # This and the async sleep is needed or else the audio will be way faster then it should
 				await asyncio.sleep(2)
 				vc.resume()
 				await ctx.send(textToSend)
 	return 
 
-#Reads whatever garbage I put in a text file to the discord where the command was called
+# Reads whatever garbage I put in a text file to the discord where the command was called
 async def copyPasta(ctx, txtFile):
-	copypastafile = open(txtFile, 'r')
-	Lines = copypastafile.readlines()
-	for line in Lines:
-		await ctx.send(line)
-	copypastafile.close()
-	return
+	# Using 'with' statement to handle file operations
+	try:
+		with open(txtFile, 'r') as copypastafile:
+			# Reading all lines at once
+			lines = copypastafile.readlines()
+			copypastafile.close()
+		# Sending all lines as a single message
+		# Joining lines and ensuring the message does not exceed Discord's character limit
+		content = ''.join(lines)
+		if len(content) <= 2000:
+			await ctx.send(content)
+		else:
+			# If the message is too long, send it in chunks
+			for start in range(0, len(content), 2000):
+				await ctx.send(content[start:start + 2000])
 
-#Pings the people listed in the .env that it's time to game	
+	except FileNotFoundError:
+		await ctx.send("Oops! The file was not found.")
+	except IOError:
+		await ctx.send("An error occurred while reading the file.")
+	except discord.HTTPException as e:
+		await ctx.send(f"An error occurred when sending the message: {str(e)}")
+
+# Pings the people listed in the .env that it's time to game	
 async def callingAllGamers(ctx, envData, whatToSay):
 	gamers = os.getenv(envData)
 	await ctx.send(gamers)
@@ -145,9 +162,11 @@ bot = commands.Bot(command_prefix='./',intents=intents)
 
 @bot.event
 async def on_ready():
-	print('im here') #Giving EdBot Depression
+	print('im here') # Giving EdBot Depression
 
-#For if someone sends an annoyingly long TTS, you can force EdBot out of your VC
+# Begin list of commands
+
+# You can force EdBot out of your VC
 @bot.command(name='fuckoff', help='forces EdBot out of Voice')
 async def leave(ctx):
 	try:
@@ -243,28 +262,14 @@ async def redditRandom(ctx, *,redditSub):
 	except:
 		await ctx.send("reddit command failed :(")
 
-#Yells at user if they are on cooldown 
+# Cooldown Warning
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
         await ctx.send('This command is on cooldown, you can use it in ' + str(round(error.retry_after, 2)) + ' seconds' )
-        
 
-@bot.command(name='play', help='To play song')
-async def play(ctx,url):
-	try:
-		async with ctx.typing():
-			print("Attempting Download")
-			await ctx.send("Downloading...")
-			filename = await YTDLSource.from_url(url, loop=bot.loop)
-			print("Download completed")
-			await audioPlayer(ctx, filename, '**Now playing:** {}'.format(filename))
-			# voice_channel.play(discord.FFmpegPCMAudio(executable="ffmpeg", source=filename)) 
-	except Exception as e:
-		await ctx.send("Something went wrong: " + e)
-
-# Assuming bot initialization and event loop are defined elsewhere in your script
-@bot.command(name='search', help='To play a song from YouTube')
+# Play audio for Youtube
+@bot.command(name='play', help='To play a song from YouTube')
 async def play(ctx, *, search: str):
     try:
         async with ctx.typing():
@@ -280,6 +285,8 @@ async def play(ctx, *, search: str):
     except Exception as e:
         await ctx.send("Something went wrong: " + str(e))
 
+# Audio Controllers
+
 @bot.command(name='pause', help='This command pauses the song')
 async def pause(ctx):
     voice_client = ctx.message.guild.voice_client
@@ -294,7 +301,7 @@ async def resume(ctx):
     if voice_client.is_paused():
         await voice_client.resume()
     else:
-        await ctx.send("The bot was not playing anything before this. Use play_song command")
+        await ctx.send("The bot was not playing anything before this. Use play command")
 
 @bot.command(name='stop', help='Stops the song')
 async def stop(ctx):
@@ -312,6 +319,8 @@ async def join(ctx):
     else:
         channel = ctx.message.author.voice.channel
     await channel.connect()
+
+# Misc Commands
 
 @bot.command(name='meme', help='when someone sends an absolute MEME')
 async def meme(ctx):
@@ -340,44 +349,42 @@ async def ben(ctx):
 async def ben(ctx):
 	await audioPlayer(ctx, "BOW.webm", "on it")
 
-#Pings the people listed in the .env that it's time to game		
+# Pings the people listed in the .env that it's time to game		
 @bot.command(name='fortnite', help='fortnite')
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def fortnite(ctx):
 	await callingAllGamers(ctx, 'FORTNITE_PEOPLE', "Fortnite time")
 	
-#Pings the people listed in the .env that it's time to game
+# Pings the people listed in the .env that it's time to game
 @bot.command(name='valorant', help='valoreeee')
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def valorant(ctx):
 	await callingAllGamers(ctx, 'VALORANT_PEOPLE', "Valorant time")
 
-#These next 4 are pretty self explanitory, just a shitpost command
 @bot.command(name='kurt', help='my opinion on kurt thomspon')
 async def kurt(ctx):
-	await copyPasta(ctx, "copy_pastas/kurt.txt")
+	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'kurt.txt'))
 
 @bot.command(name='tuning', help='my opinion on tuning')
 async def tuning(ctx):
-	print("being commanded")
-	await copyPasta(ctx, "copy_pastas/tune.txt")
+	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'tune.txt'))
 	
 @bot.command(name='yamaha', help='my opinion on yamaha')
-@commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
+@commands.cooldown(1, 15, commands.BucketType.user) 
 async def yamaha(ctx):
-	await copyPasta(ctx, "copy_pastas/yamaha.txt")
+	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'yamaha.txt'))
 
 @bot.command(name='genz', help='my opinion on zoomers')
-@commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
+@commands.cooldown(1, 15, commands.BucketType.user)
 async def genz(ctx):
-	await copyPasta(ctx, "copy_pastas/genz.txt")
+	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'genz.txt'))
 	
 @bot.command(name='cctuba', help='my opinion on cctuba')
-@commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
+@commands.cooldown(1, 15, commands.BucketType.user)
 async def cctuba(ctx):
-	await copyPasta(ctx, "copy_pastas/cctuba.txt")
+	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'cctuba.txt'))
 
-bot.run(TOKEN) #Kickoff EdBot
+bot.run(TOKEN) # Kickoff EdBot
 
 
 
