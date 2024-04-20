@@ -3,15 +3,12 @@ import random
 import discord 
 from discord.ext import commands, tasks 
 import time
-import ffmpeg # for playing audio files through commandline to discord
 import asyncpraw # Reddit Async Library
 from dotenv import load_dotenv # env stuff
 import asyncio # For Async commands bc discord needs them
 from boto3 import Session # for TTS
 from botocore.exceptions import BotoCoreError, ClientError # More TTS
 from contextlib import closing # Even More TTS
-import sys 
-import subprocess 
 import wolframalpha
 import yt_dlp
 
@@ -82,7 +79,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
 # Begin universal functions
-# Sends a message in the channel where called and then joins to play some audio and then leave
+# Sends a message in the channel where called and then joins to play some audio
 async def audioPlayer(ctx, audioFile, textToSend):
 	
 	if ctx.voice_client is None:
@@ -187,9 +184,7 @@ async def parrot(ctx, *,whatToParrot):
 	channel = bot.get_channel(parrotChannel)
 	await channel.send(whatToParrot)
 
-#This should also be it's own fuction or another Python File, but once again dealing with async stuff is hell.
-# Edit - I just can't be bothered
-#I didn't write the TTS code, that came from my friend for my TeamSpeak Bot
+# Use AWS Poly for TTS
 @bot.command(name='tts', help='lol funny voice')
 async def tts(ctx, *,whatTotts):
 	text = str(whatTotts)
@@ -218,7 +213,7 @@ async def tts(ctx, *,whatTotts):
 		return error
 	await audioPlayer(ctx, 'last_tts.mp3', "TTS Created")
 
-#Will never actually ban someone. Just a social experiment 
+# Will never actually ban someone. Just a social experiment 
 @bot.command(name='ban', help='/ban @username')
 async def ban(ctx, *,userName):
 	await ctx.send("Okay, banning "  + userName + " in: ")
@@ -231,7 +226,7 @@ async def ban(ctx, *,userName):
 	time.sleep(5)
 	await ctx.send("HA. Bitch u thought")
 	
-#Using WolfRamAlpha API to do complex stuff
+# Using WolfRamAlpha API to do complex stuff
 @bot.command(name='domath', help='does some math and other stuff')
 async def domath(ctx, *,mathRequest):
 	client = wolframalpha.Client(mathID)
@@ -248,7 +243,7 @@ async def domath(ctx, *,mathRequest):
 
 	await ctx.send(answer)
 
-#Ripped the logic of this straight out of Stack Overflow
+# Ripped the logic of this straight out of Stack Overflow
 @bot.command(name='reddit', help='Pull a hot post from the sub of your choice.   usage: ./reddit <inset sub here> ')
 async def redditRandom(ctx, *,redditSub):
 	try:
@@ -283,7 +278,7 @@ async def play(ctx, *, search: str):
             await ctx.send('**Now playing:** {}'.format(filename.title))
             ctx.voice_client.play(filename, after=lambda e: print('Player error: %s' % e) if e else None)
     except Exception as e:
-        await ctx.send("Something went wrong: " + str(e))
+        await ctx.send("Nah: " + str(e))
 
 # Audio Controllers
 
@@ -324,30 +319,30 @@ async def join(ctx):
 
 @bot.command(name='meme', help='when someone sends an absolute MEME')
 async def meme(ctx):
-	await audioPlayer(ctx, 'notfunny.mp3', "https://c.tenor.com/BM-QtYCZIloAAAAd/not-funny-didnt-laugh.gif")
+	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'notfunny.mp3'), "https://c.tenor.com/BM-QtYCZIloAAAAd/not-funny-didnt-laugh.gif")
 
 @bot.command(name='walled', help='GET TILTED')
 async def walled(ctx):
-	await audioPlayer(ctx, 'walled.mp3', "http://files.pykosh.com/files/gif/wall.gif")
+	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'notfunny.mp3'), "http://files.pykosh.com/files/gif/wall.gif")
 
 @bot.command(name='PVS', help='GET HYPER')
 async def walled(ctx):
-	await audioPlayer(ctx, 'PVS.mp3', "I'm sorry")
+	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'songs', 'PVS.mp3'), "I'm sorry")
 	
 @bot.command(name='bamba', help='GET SINGING')
 async def walled(ctx):
-	await audioPlayer(ctx, 'LaBamba.mp3', "I'm sorry")
+	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'songs', 'LaBamba.mp3'), "I'm sorry")
 
 @bot.command(name='ben', help='god help us all')
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def ben(ctx):
 	benVoice = random.choice(["ben/ben_laugh.mp3" , "ben/ben_yes.mp3", "ben/ben_no.mp3", "ben/ben_grunt.mp3"])
-	await audioPlayer(ctx, benVoice, "calling ben")
+	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', benVoice), "calling ben")
 	
 @bot.command(name='bow', help='LETS GET IT')
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def ben(ctx):
-	await audioPlayer(ctx, "BOW.webm", "on it")
+	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'songs', 'BOW.webm'), "on it")
 
 # Pings the people listed in the .env that it's time to game		
 @bot.command(name='fortnite', help='fortnite')
