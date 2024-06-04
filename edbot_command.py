@@ -11,7 +11,8 @@ from botocore.exceptions import BotoCoreError, ClientError # More TTS
 from contextlib import closing # Even More TTS
 import wolframalpha
 import yt_dlp
-
+import pickle
+import functools
 
 load_dotenv()
 # Find where script is running
@@ -25,6 +26,28 @@ reddit = asyncpraw.Reddit(
     client_secret=os.getenv('CLIENT_SECRET'),
     user_agent=os.getenv('USER_AGENT'),
 )
+
+# Rock Paper Scissor Stuff
+score_file = os.path.join(script_dir, 'data', 'scores.pkl')
+# Function to load scores from file
+async def load_scores():
+    if os.path.exists(score_file):
+        try:
+            with open(score_file, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            print(f"Error loading scores: {e}")
+            return {}
+    else:
+        return {}
+async def save_scores(scores):
+    try:
+        with open(score_file, 'wb') as f:
+            pickle.dump(scores, f)
+    except Exception as e:
+        print(f"Error saving scores: {e}")
+
+all_scores = asyncio.run(load_scores())
 
 # Logic for Youtube Downloader
 
@@ -378,6 +401,92 @@ async def genz(ctx):
 @commands.cooldown(1, 15, commands.BucketType.user)
 async def cctuba(ctx):
 	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'cctuba.txt'))
+
+@bot.command(name='rps')
+async def rock_paper_scissors(ctx):
+    username = str(ctx.author)
+    
+    # Initialize user scores if not present
+    if username not in all_scores:
+        all_scores[username] = {'userScore': 0, 'computerScore': 0, 'tieCounter': 0}
+
+    userScore = all_scores[username]['userScore']
+    computerScore = all_scores[username]['computerScore']
+    tieCounter = all_scores[username]['tieCounter']
+    
+    # Game constants
+    choices = ['rock', 'paper', 'scissors']
+    tie = "It's a tie!"
+    userWin = "You win!"
+    computerWin = "Computer wins!"
+
+    def check(msg):
+        return msg.author == ctx.author and msg.channel == ctx.channel and msg.content.lower() in choices
+
+    await ctx.send("Pick rock, paper, or scissors:")
+    try:
+        msg = await bot.wait_for('message', check=check, timeout=30.0)
+    except asyncio.TimeoutError:
+        await ctx.send('You took too long to respond!')
+        return
+
+    userInput = msg.content.lower()
+    computerGuess = random.choice(choices)
+
+    await ctx.send(f"You chose: {userInput}")
+    await ctx.send(f"The computer chose: {computerGuess}")
+
+    # Determine the result
+    if userInput == computerGuess:
+        result = tie
+        tieCounter += 1
+    elif (userInput == 'rock' and computerGuess == 'scissors') or \
+         (userInput == 'scissors' and computerGuess == 'paper') or \
+         (userInput == 'paper' and computerGuess == 'rock'):
+        result = userWin
+        userScore += 1
+    else:
+        result = computerWin
+        computerScore += 1
+
+    await ctx.send(result)
+    await ctx.send(f"Computer: {computerScore}, User: {userScore}, Ties: {tieCounter}")
+
+    all_scores[username] = {'userScore': userScore, 'computerScore': computerScore, 'tieCounter': tieCounter}
+    await save_scores(all_scores)
+    await ask_to_play_again(ctx, bot)
+    # Ask the user if they want to play again
+# Function to check if the message is from the correct author and channel
+async def check(msg, ctx):
+    return msg.author == ctx.author and msg.channel == ctx.channel
+
+async def ask_to_play_again(ctx, bot):
+    await ctx.send("Do you want to play again? (yes/no)")
+
+    try:
+        msg = await bot.wait_for('message', check=lambda m: m.author == ctx.author and m.channel == ctx.channel, timeout=60.0)
+        response = msg.content.lower()
+        print(f"Received response: {response}")
+
+        if response == 'yes':
+            await rock_paper_scissors(ctx)  # Play again
+        elif response == 'no':
+            await ctx.send("Thanks for playing!")
+        else:
+            await ctx.send("Invalid response. Please respond with 'yes' or 'no'.")
+    except asyncio.TimeoutError:
+        await ctx.send('You took too long to respond. Exiting game.')
+
+@bot.command(name='score')
+async def score(ctx):
+    username = str(ctx.author)
+    if username in all_scores:
+        userScore = all_scores[username]['userScore']
+        computerScore = all_scores[username]['computerScore']
+        tieCounter = all_scores[username]['tieCounter']
+        await ctx.send(f"Your score - Wins: {userScore}, Losses: {computerScore}, Ties: {tieCounter}")
+    else:
+        await ctx.send("You don't have any scores yet. Play a game first!")
 
 bot.run(TOKEN) # Kickoff EdBot
 
