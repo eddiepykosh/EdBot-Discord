@@ -49,6 +49,15 @@ async def save_scores(scores):
 
 all_scores = asyncio.run(load_scores())
 
+# Function to load swear counts from a file
+def load_swear_counts(filename):
+    if os.path.exists(filename):
+        with open(filename, 'rb') as file:
+            return pickle.load(file)
+    return {}
+
+
+
 # Logic for Youtube Downloader
 
 yt_dlp.utils.bug_reports_message = lambda: ''
@@ -477,7 +486,7 @@ async def ask_to_play_again(ctx, bot):
     except asyncio.TimeoutError:
         await ctx.send('You took too long to respond. Exiting game.')
 
-@bot.command(name='score')
+@bot.command(name='rpsscore', help='Rock Paper Scissors Score for you.')
 async def score(ctx):
     username = str(ctx.author)
     if username in all_scores:
@@ -487,6 +496,14 @@ async def score(ctx):
         await ctx.send(f"Your score - Wins: {userScore}, Losses: {computerScore}, Ties: {tieCounter}")
     else:
         await ctx.send("You don't have any scores yet. Play a game first!")
+
+@bot.command(name='swear_count', help='how many times did you say a bad word?')
+async def swear_count(ctx):
+    swear_counts_file = os.path.join(script_dir, 'data', 'swear_counts.pkl')
+    swear_counts = load_swear_counts(swear_counts_file)
+    user_id = str(ctx.author.id)
+    total_swears = swear_counts.get(user_id, 0)
+    await ctx.send(f"You have sworn a total of {total_swears} time(s).")
 
 bot.run(TOKEN) # Kickoff EdBot
 

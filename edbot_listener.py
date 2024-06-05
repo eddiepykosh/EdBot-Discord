@@ -16,6 +16,7 @@ from discord.ext import commands
 # .env stuff
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
+import pickle
 
 load_dotenv()
 
@@ -70,6 +71,58 @@ try:
 		file.close()
 except FileNotFoundError:
     print(f"The file {edbot_response_file_path} was not found.")
+
+# Function to load swears from a file
+def load_swears(filename):
+    swears = {'not_bad': [], 'bad': [], 'really_bad': []}
+    try:
+        with open(filename, 'r') as file:
+            for line in file:
+                severity, swear = line.strip().split(',')
+                if severity in swears:
+                    swears[severity].append(swear)
+    except FileNotFoundError:
+        print(f"Error: The file '{filename}' was not found.")
+    return swears
+
+# Function to load swear counts from a file
+def load_swear_counts(filename):
+    if os.path.exists(filename):
+        with open(filename, 'rb') as file:
+            return pickle.load(file)
+    return {}
+
+def save_swear_counts(filename, swear_counts):
+    with open(filename, 'wb') as file:
+        pickle.dump(swear_counts, file)
+
+swears = load_swears(os.path.join(script_dir, 'assets', 'text', 'swears.txt'))
+swear_counts_file = os.path.join(script_dir, 'data', 'swear_counts.pkl')
+swear_counts = load_swear_counts(swear_counts_file)
+
+swear_responses = {
+    'not_bad': ["pottymouth", "that's not nice"],
+    'bad': ["you're starting to hurt my feelings", "i don't know why you keep doing that"],
+    'really_bad': ["okay now i'm going to cry", "that's not nice at all :(", "why do you hate me"]
+}
+
+# Function to count swears in a message
+def count_swears(message_content, swears):
+    words_in_message = message_content.lower().split()
+    swear_counts = {'not_bad': 0, 'bad': 0, 'really_bad': 0}
+
+    for word in words_in_message:
+        for severity, swear_list in swears.items():
+            if word in swear_list:
+                swear_counts[severity] += 1
+
+    return swear_counts
+
+# Function to get a random response based on severity
+def get_random_response(severity):
+    if severity in swear_responses:
+        return random.choice(swear_responses[severity])
+    return ""
 
 # Get Discord and Weather Manager tokens from .env file
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -324,6 +377,27 @@ async def on_message(message):
 		print(message.author)
 		edbot_response = random.choice(edbot_responses_list)
 		await message.channel.send(edbot_response)
+	
+	swear_count_message = count_swears(message.content, swears)
+	total_swears = sum(swear_count_message.values())
+
+	if total_swears > 0:
+		user_id = str(message.author.id)
+		if user_id not in swear_counts:
+			swear_counts[user_id] = 0
+		swear_counts[user_id] += total_swears
+		save_swear_counts(swear_counts_file, swear_counts)
+
+		#response = f"Your message had {total_swears} swear(s)."
+		#await message.channel.send(response)
+
+		# Random chance to send a response based on severity
+		if swear_count_message['really_bad'] > 0 and random.random() < 0.7:  # 70% chance
+			await message.channel.send(get_random_response('really_bad'))
+		elif swear_count_message['bad'] > 0 and random.random() < 0.5:  # 50% chance
+			await message.channel.send(get_random_response('bad'))
+		elif swear_count_message['not_bad'] > 0 and random.random() < 0.3:  # 30% chance
+			await message.channel.send(get_random_response('not_bad'))
 		
 client.run(TOKEN) # Kicks off the script
 
