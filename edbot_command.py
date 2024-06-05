@@ -20,6 +20,8 @@ script_dir = os.path.dirname(__file__)
 
 mathID = os.getenv('WRA_MATH_KEY')
 TOKEN = os.getenv('DISCORD_TOKEN')
+AWS_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET = os.getenv("AWS_SECRET_ACCESS_KEY")
 
 reddit = asyncpraw.Reddit(
     client_id=os.getenv('CLIENT_ID'),
@@ -220,7 +222,7 @@ async def parrot(ctx, *,whatToParrot):
 @bot.command(name='tts', help='lol funny voice')
 async def tts(ctx, *,whatTotts):
 	text = str(whatTotts)
-	session = Session(profile_name='default')
+	session = Session(aws_access_key_id=AWS_ID, aws_secret_access_key=AWS_SECRET)
 	polly = session.client('polly', region_name='us-east-2')
 	try:
 		response = polly.synthesize_speech(Text=text, OutputFormat='mp3', VoiceId='Brian')
