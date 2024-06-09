@@ -392,11 +392,11 @@ async def on_message(message):
 		#await message.channel.send(response)
 
 		# Random chance to send a response based on severity
-		if swear_count_message['really_bad'] > 0 and random.random() < 0.7:  # 70% chance
+		if swear_count_message['really_bad'] > 0 and random.random() < 0.5:  # 50% chance
 			await message.channel.send(get_random_response('really_bad'))
-		elif swear_count_message['bad'] > 0 and random.random() < 0.5:  # 50% chance
+		elif swear_count_message['bad'] > 0 and random.random() < 0.3:  # 30% chance
 			await message.channel.send(get_random_response('bad'))
-		elif swear_count_message['not_bad'] > 0 and random.random() < 0.3:  # 30% chance
+		elif swear_count_message['not_bad'] > 0 and random.random() < 0.1:  # 10% chance
 			await message.channel.send(get_random_response('not_bad'))
 		
 client.run(TOKEN) # Kicks off the script
