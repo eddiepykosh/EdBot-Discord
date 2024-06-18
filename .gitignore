@@ -2,3 +2,4 @@
 .env
 
 data/swear_counts.pkl
+data/last_ai_response.txt
