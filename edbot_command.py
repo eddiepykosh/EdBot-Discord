@@ -13,6 +13,9 @@ import wolframalpha
 import yt_dlp
 import pickle
 import functools
+import aiohttp
+import asyncio
+from datetime import datetime
 
 load_dotenv()
 # Find where script is running
@@ -22,6 +25,7 @@ mathID = os.getenv('WRA_MATH_KEY')
 TOKEN = os.getenv('DISCORD_TOKEN')
 AWS_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET = os.getenv("AWS_SECRET_ACCESS_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL")
 
 reddit = asyncpraw.Reddit(
     client_id=os.getenv('CLIENT_ID'),
@@ -506,6 +510,120 @@ async def swear_count(ctx):
     user_id = str(ctx.author.id)
     total_swears = swear_counts.get(user_id, 0)
     await ctx.send(f"You have sworn a total of {total_swears} time(s).")
+
+@bot.command(name='player_info', help='Get an NFL players basic info')
+async def player_info(ctx, first_name: str, last_name: str):
+    # Construct the API URL
+    url = f"{API_BASE_URL}/getPlayerInfo?firstName={first_name}&lastName={last_name}"
+    
+    # Make the API request
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                
+                # Create a Discord embed with the player information
+                embed = discord.Embed(title=f"Player Info: {first_name} {last_name}", color=discord.Color.blue())
+                embed.add_field(name="Age", value=data["age"], inline=True)
+                embed.add_field(name="Team", value=data["team"], inline=True)
+                embed.add_field(name="Position", value=data["pos"], inline=True)
+                embed.add_field(name="School", value=data["school"], inline=False)
+                
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send(f"Who tf is {first_name} {last_name}")
+
+@bot.command(name='nfl_news', help='Get the latest in NFL News')
+async def nfl_news(ctx):
+    url = f"{API_BASE_URL}/NFLNews"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                
+                embed = discord.Embed(title="Top 5 NFL News Stories", color=discord.Color.green())
+                
+                for index, story in enumerate(data, start=1):
+                    embed.add_field(name=f"{index}. {story['title']}", value=f"[Read more]({story['link']})", inline=False)
+                
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send("Error: Unable to fetch NFL news.")
+
+@bot.command(name='nfl_schedule', help='Get the given weeks NFL schedule')
+async def nfl_schedule(ctx, week: int):
+    if not 1 <= week <= 18:
+        await ctx.send("Please enter a valid week number between 1 and 18.")
+        return
+
+    url = f"{API_BASE_URL}/NFLGames?week={week}"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                embeds = []
+                current_embed = discord.Embed(title=f"NFL Schedule - Week {week}", color=discord.Color.blue())
+                field_count = 0
+                
+                for game in data:
+                    game_date = datetime.strptime(game['gameDate'], "%Y%m%d").strftime("%A, %B %d")
+                    game_time = game['gameTime']
+                    home_team = game['homeTeam']
+                    away_team = game['awayTeam']
+                    
+                    field_name = f"{away_team} @ {home_team}"
+                    field_value = f"{game_date} at {game_time}\n[View on ESPN]({game['espnLink']})"
+                    
+                    if field_count >= 25:  # Max 25 fields per embed
+                        embeds.append(current_embed)
+                        current_embed = discord.Embed(title=f"NFL Schedule - Week {week} (Continued)", color=discord.Color.blue())
+                        field_count = 0
+                    
+                    current_embed.add_field(name=field_name, value=field_value, inline=False)
+                    field_count += 1
+                
+                if field_count > 0:
+                    embeds.append(current_embed)
+                
+                for embed in embeds:
+                    await ctx.send(embed=embed)
+            else:
+                await ctx.send("Error: Unable to fetch NFL schedule.")
+
+@bot.command(name='nfl_scores', help='Get some basic live NFL stats')
+async def nfl_scores(ctx, week: int):
+    if not 1 <= week <= 18:
+        await ctx.send("Please enter a valid week number between 1 and 18.")
+        return
+
+    url = f"{API_BASE_URL}/NFLScores?week={week}"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                
+                embed = discord.Embed(title=f"NFL Live Scores - Week {week}", color=discord.Color.green())
+                
+                for game in data:
+                    game_status = game['gameStatus']
+                    if game_status == "Completed":
+                        status_display = "Final"
+                    elif game_status == "InProgress":
+                        status_display = f"Q{game['gameClock']}"
+                    else:
+                        status_display = game['gameTime']
+
+                    field_name = f"{game['awayTeam']} @ {game['homeTeam']}"
+                    field_value = f"{game['awayPts']} - {game['homePts']} ({status_display})"
+                    
+                    embed.add_field(name=field_name, value=field_value, inline=False)
+                
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send("Error: Unable to fetch NFL scores.")
 
 bot.run(TOKEN) # Kickoff EdBot
 
