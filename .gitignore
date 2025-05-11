@@ -2,3 +2,4 @@
 .env
 
 data/swear_counts.pkl
+logs/__main__.log
