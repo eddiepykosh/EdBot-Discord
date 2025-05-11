@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  edbot_command:
+    image: eddiepykosh/edbot:latest        # Replace with your Docker Hub repo/image
+    env_file: ./.env                            # Path to your .env file on the host
+    volumes:
+      - ./data:/app/data                             # Host 'data' directory mapped to container
+      - ./logs:/app/logs                             # Host 'logs' directory mapped to container
+      - ./assets:/app/assets:ro                      # Optional: map assets if you want to override or persist them
+    restart: unless-stopped
+
+  edbot_listener:
+    image: eddiepykosh/edbot:latest        # Use same image if both scripts are in one image
+    command: python edbot_listener.py                # Override entrypoint if needed
+    env_file: ./.env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./assets:/app/assets:ro
+    restart: unless-stopped
