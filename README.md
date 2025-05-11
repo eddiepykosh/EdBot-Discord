@@ -57,3 +57,11 @@ Things You Should Know if you try to use this:
 Todo:
 ---
 Find $75,000 and put EdBot inside a Boston Dynamics' robot dog Spot.
+
+
+--cmds
+create venv - python3 -m venv ~/python-venv/
+install packages - ~/python-venv/bin/pip3 install -r requirements.txt 
+install ffmpeg stuff - apt install libffi-dev libnacl-dev python3-dev
+sudo apt install ffmpeg
+playwright and yt-dlp?

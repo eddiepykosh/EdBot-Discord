@@ -18,6 +18,8 @@ from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 import pickle
 
+from common.logger import get_logger
+logger = get_logger(__name__)
 load_dotenv()
 
 # Find where script is running
@@ -41,7 +43,7 @@ try:
 		city_list += city_file_content.split("\n")
 		file.close()
 except FileNotFoundError:
-    print(f"The file {city_file_path} was not found.")
+    logger.error(f"The file {city_file_path} was not found.")
 
 
 # for i in range(len(city_list)):
@@ -60,7 +62,7 @@ try:
 		bully_words += bully_file_content.split("\n")
 		file.close()
 except FileNotFoundError:
-    print(f"The file {bully_file_path} was not found.")
+    logger.error(f"The file {bully_file_path} was not found.")
 
 edbot_response_file_path = os.path.join(script_dir, 'assets', 'text', 'edbot_responses.txt')
 try:
@@ -70,7 +72,7 @@ try:
 		edbot_responses_list += edbot_response_content.split("\n")
 		file.close()
 except FileNotFoundError:
-    print(f"The file {edbot_response_file_path} was not found.")
+    logger.error(f"The file {edbot_response_file_path} was not found.")
 
 # Function to load swears from a file
 def load_swears(filename):
@@ -82,7 +84,7 @@ def load_swears(filename):
                 if severity in swears:
                     swears[severity].append(swear)
     except FileNotFoundError:
-        print(f"Error: The file '{filename}' was not found.")
+        logger.error(f"Error: The file '{filename}' was not found.")
     return swears
 
 # Function to load swear counts from a file
@@ -137,7 +139,7 @@ client = discord.Client(intents=intents)
 # Connected 
 @client.event
 async def on_ready():
-	print(f'{client.user.name} has connected to Discord!')
+	logger.info(f'{client.user.name} has connected to Discord!')
 
 '''
 Where all the magic happens.
@@ -151,7 +153,7 @@ async def on_message(message):
 	# A jerk function that says mean things to the targeted user.
 	if str(message.author) == bullied_user:
 		chance_to_bully = random.randrange(1, 20)
-		print('dylans talking')
+		logger.info('dylans talking')
 		if chance_to_bully == 2:
 			response = random.choice(bully_words)
 			await message.channel.send(response)
@@ -186,8 +188,8 @@ async def on_message(message):
 			matched_cities = words_in_message.intersection(city_listset)
 			
 			if matched_cities:
-				print('Running city command')
-				print(message.author)
+				logger.info('Running city command')
+				logger.debug(message.author)
 				
 				# Handling multiple cities in one message; just taking the first matched city for simplicity
 				first_matched_city = matched_cities.pop()
@@ -203,7 +205,7 @@ async def on_message(message):
 
 		except Exception as e:
 			# Proper error logging
-			print(f"An error occurred: {str(e)}")
+			logger.error(f"An error occurred: {str(e)}")
 			await message.channel.send("I pooped.")
 
 	if 'who would win' in message.content.lower():
@@ -236,7 +238,7 @@ async def on_message(message):
 			await message.channel.send(response)
 		
 		except Exception as e:
-			print(f"Error: {str(e)}")
+			logger.error(f"Error: {str(e)}")
 			await message.channel.send("You triggered my 'who would win' command but the parameters were invalid.")
 
 	if 'FORTNITE STORE PLS' in message.content.upper():
@@ -273,7 +275,7 @@ async def on_message(message):
 
 			# Close the browser
 			await browser.close()
-			print("done")
+			logger.debug("done")
 
 			# Send the screenshot
 			await message.channel.send(file=discord.File(screenshot_path))
@@ -283,79 +285,79 @@ async def on_message(message):
 	'''
 
 	if 'uwu' in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said uwu")
 		response = message.author.mention + " stop that. "
 		await message.channel.send(response)
 		
 	if 'guess whos back' in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said guess whos back")
 		response = "back again"
 		await message.channel.send(response)
 		
 	if 'pog' in message.content.lower(): 
-		print(message.author)
+		logger.info(str(message.author) + " said pog")
 		chancetoPog = random.randrange(1, 5)  # This probably isn't the best way to do RNG
 		if chancetoPog == 2:
 			response = "<:retrenched:885980310754459730>"
 			await message.channel.send(response)
 	
-	if 'austin' in message.content.lower():
-		print(message.author)
-		response = "<@690012125430546562>"
-		await message.channel.send(response)
+	# if 'austin' in message.content.lower():
+	# 	print(message.author)
+	# 	response = "<@690012125430546562>"
+	# 	await message.channel.send(response)
 	
 	if 'todd' in message.content.lower(): # EdBot gets meta
-		print(message.author)
+		logger.info(str(message.author) + " said todd")
 		response = "im just a shitty toddbot"
 		await message.channel.send(response)
 	
 	if '@everyone' in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said @everyone")
 		response = "You have commited a grave sin " + message.author.mention
 		await message.channel.send(response)
 		
 	if '@here' in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said @here")
 		response = "You're on thin fucking ice " + message.author.mention
 		await message.channel.send(response)
 		
 	if "how's the weather" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said how's the weather")
 		response = "IT'S RAINING SIDEWAYS"
 		await message.channel.send(response)
 
 	if "do you have an umbrella" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said do you have an umbrella")
 		response = "HAD ONE"
 		await message.channel.send(response)
 		
 	if "where is it" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said where is it")
 		response = "INSIDE OUT - TWO MILES AWAY"
 		await message.channel.send(response)
 
 	if "anything we can do for you" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said anything we can do for you")
 		response = "BRING ME SOME SOUP"
 		await message.channel.send(response)
 
 	if "what kind" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said what kind")
 		response = "CHUNKY"
 		await message.channel.send(response)
 		
 	if "shut up" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said shut up")
 		response = "I'M SO FUCKING SCARED RIGHT NOW, YOU SHUT UP"
 		await message.channel.send(response)
 		
 	if "look at him and tell me there's a god" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said look at him and tell me there's a god")
 		response = "He made me in his own image."
 		await message.channel.send(response)
 
 	if "fly me to the moon" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said fly me to the moon")
 		response1 = "let me kick it's fucking ass"
 		response2 = "let me show it what i learned"
 		response3 = "in my moon jujitsu class"
@@ -364,17 +366,17 @@ async def on_message(message):
 		await message.channel.send(response3)
 	
 	if "pokemon" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said pokemon")
 		response = "Pokemon GO to the polls"
 		await message.channel.send(response)
 		
 	if "xd" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said xd")
 		response = "https://tenor.com/view/drinking-bleach-mug-clean-yourself-cleaning-gif-10137452"
 		await message.channel.send(response)
 		
 	if "edbot" in message.content.lower():
-		print(message.author)
+		logger.info(str(message.author) + " said edbot")
 		edbot_response = random.choice(edbot_responses_list)
 		await message.channel.send(edbot_response)
 	
