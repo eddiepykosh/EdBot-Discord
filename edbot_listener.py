@@ -1,9 +1,4 @@
-'''
-The orginal version of EdBot.  Originally named "WeatherBot" 
-Does not use a command prefix and checks every message that comes 
-in to see if it matches a keyword.  If it does, 
-then EdBot does an action.  Similar to how ToddBot works.
-'''
+# EdBot_Listerner is a Discord bot that listens to messages in channels and responds to certain keywords or phrases.
 import os
 import random
 import discord
@@ -11,11 +6,13 @@ import discord
 from pyowm import OWM
 from pyowm.utils import config
 from pyowm.utils import timestamps
-# More Discord stuff (not even sure if this is needed tbh)
+# More Discord stuff
 from discord.ext import commands
 # .env stuff
 from dotenv import load_dotenv
+# Playwright for Fortnite Store
 from playwright.async_api import async_playwright
+# Pickle for saving swear counts
 import pickle
 
 from common.logger import get_logger
@@ -27,10 +24,10 @@ script_dir = os.path.dirname(__file__)
 
 # initalize Lists
 speaker_loop = [0]
-current_speaker = ['tom nook']
-city_list = ['norfolk']
-bully_words = ['nah']
-edbot_responses_list = ['whatever you say man']
+current_speaker = ['']
+city_list = []
+bully_words = []
+edbot_responses_list = []
 
 # Gets the Weather Lady
 weather_person = os.getenv('WEATHER_PERSON')
@@ -44,11 +41,6 @@ try:
 		file.close()
 except FileNotFoundError:
     logger.error(f"The file {city_file_path} was not found.")
-
-
-# for i in range(len(city_list)):
-#     city_list[i] = city_list[i].lower()
-# print(city_list)
 
 
 # EdBot has some anger issues.  You can set a user for him to bully in the .env file
@@ -153,7 +145,7 @@ async def on_message(message):
 	# A jerk function that says mean things to the targeted user.
 	if str(message.author) == bullied_user:
 		chance_to_bully = random.randrange(1, 20)
-		logger.info('dylans talking')
+		logger.info(f'{message.author} is talking')
 		if chance_to_bully == 2:
 			response = random.choice(bully_words)
 			await message.channel.send(response)
@@ -162,7 +154,7 @@ async def on_message(message):
 	if message.author == client.user:
 		return
 	
-	# Checks if someone is being annoying.	
+	# Checks if someone is being talking to much.	
 	if message.author == current_speaker[0]:
 		speaker_loop[0] += 1
 	else: 
@@ -170,7 +162,7 @@ async def on_message(message):
 		speaker_loop[0] = 1
 	if speaker_loop[0] >= 10:
 		speaker_loop[0] = 0
-		response = "Hey " + message.author.mention + " can you like quiet down?"
+		response = f"Hey {message.author.mention} can you like quiet down?"
 		await message.channel.send(response)			
 		
 
