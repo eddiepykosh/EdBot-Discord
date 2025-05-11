@@ -1,67 +1,148 @@
 # EdBot-Discord
-EdBot 2.0 - GPT to the rescue
 
-Origin:
+EdBot 3.0 - oh. dear. god.
+
 ---
-EdBot was orginally a bot named WeatherBot that meant to annoy people on Discord by
-telling them the current weather in a given city
 
-Disclaimer:
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Features](#features)
+- [Installation](#installation)
+  - [Using Docker](#using-docker)
+  - [Without Docker](#without-docker)
+- [Usage](#usage)
+- [Disclaimer](#disclaimer)
+- [Development History](#development-history)
+  - [EdBot 2.0](#edbot-20)
+  - [EdBot 1.0](#edbot-10)
+- [Things to Know](#things-to-know)
+- [Todo](#todo)
+
 ---
-EdBot 2.0 is now *less* of a coding malpratice. Some parts of it are still weird but ChatGPT helped clean up a ton of this.
 
-Still though, copy and paste my code responsibly if you are gonna try and use parts of this thing.
+## Introduction
 
-What EdBot 2.0 is:
+EdBot is a versatile Discord bot designed to "enhance" your server experience. Originally created as a weather bot, EdBot has evolved into a multi-functional tool with features ranging from audio playback to keyword-based actions.
+
 ---
-There are two primary scripts - edbot_command.py and edbotlistener.py.
 
-* The Command script waits for someone to do a "./" command and then it acts accordingly.
-  * It's primary functions are playing MP3's and dumping copy pastas with some added bonuses put in.
-* The Listener scripts waits for keywords and does an action based on what it read.
-  * Mostly just tells the weather and tells people to shut up.
-  * Inspired by the Todd (Howard) Discord Bot.
+## Features
 
+- **Command-based interactions**: Execute commands with `./` to trigger various actions.
+- **Keyword listener**: Responds to specific keywords with predefined actions.
+- **Audio playback**: Plays MP3 files directly in your Discord server.
+- **Weather updates**: Provides current weather information for a given city.
+- ~~**Text-to-Speech (TTS)**: Converts text into speech using AWS Polly.~~
 
-What EdBot 1.0 was:
 ---
-EdBot consists of 4 main parts:
-* WeatherBot.py
-  * This was the originating code and ToddBot part of EdBot. Now renamed EdBot-Listener 
-* WeatherBotCommand.py
-  * Now named EdBot-Command
-  * This portion also include a Text-to-Speech portion (similar to what you hear on twitch streams)
-* IncomingTextsServer.py and TextMessagePoster.py
-  * This used to do some cool stuff with texting and calling via the Twilio but can be subject to abuse so I pulled all relevant function and going to make a new Repo for it.
-* There was also 5th script to this that used OpenAI before ChatGPT was a thing.
-  * It is no longer used because I could not really wrap my head around it
-  * When I did manage to wrap my head around one part, the bot literally told me to go Alt-F4 myself
-  * This was also before ChatGPT was a thing so the AI was really rowdy.
 
-Things You Should Know if you try to use this:
+## Installation
+
+### Using Docker
+
+1. Create a new directory on your host machine.
+2. Download the `docker-compose-from-dockerhub.yml` file from the `usage` folder and rename it to `docker-compose.yml`.
+3. Download the sample `.env` file and place it in the same directory.
+4. Update the `.env` file with the required information.
+5. Make any necessary adjustments to the `docker-compose.yml` file.
+6. Start the application:
+
+   ```bash
+   docker compose up -d
+   ```
+
+### Without Docker
+
+1. Clone this repository:
+
+   ```bash
+   git clone https://github.com/your-username/EdBot-Discord.git
+   cd EdBot-Discord
+   ```
+
+2. Set up a Python virtual environment and install dependencies:
+
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+3. Install additional system dependencies (if required):
+
+   ```bash
+   sudo apt install libffi-dev libnacl-dev python3-dev ffmpeg
+   ```
+
+4. Run the scripts:
+
+   - Start the command handler:
+
+     ```bash
+     python edbot_command.py
+     ```
+
+   - Start the listener:
+
+     ```bash
+     python edbot_listener.py
+     ```
+
+5. (Optional) Automate the bot using the provided `.service` files for systemd.
+
 ---
-* Good luck.
-* There is no main.py - To use, you must call each of the scripts individually.
-* I included a template .env file for the env variables.
-* I also included the other files that the scripts reference in the assests folder.
-* You'll need to install or have FFMPEG on your PATH to get the audio part to work.
-  * Linux people use these:
-    * apt install libffi-dev libnacl-dev python3-dev
-    * apt install ffmpeg
-* Project should run on anything Python past v3.8 . The requirements.txt should have what you need for Python dependencies.
-* For TTS to work, you'll need a AWS account 
-  * Also need to make a .aws folder in your /Users folder (For Windows at least).
-  * Inside that you'll need a credentials file from AWS
-  * Amazon probably has a guide on this 
 
-Todo:
+## Usage
+
+- **Commands**: Use `./` followed by a command to interact with EdBot.
+- **Listener**: EdBot will automatically respond to specific keywords in chat.
+- **Audio Features**: Ensure FFMPEG is installed and configured for audio playback.
+
 ---
-Find $75,000 and put EdBot inside a Boston Dynamics' robot dog Spot.
 
+## Disclaimer
 
---cmds
-create venv - python3 -m venv ~/python-venv/
-install packages - ~/python-venv/bin/pip3 install -r requirements.txt 
-install ffmpeg stuff - apt install libffi-dev libnacl-dev python3-dev
-sudo apt install ffmpeg
-playwright and yt-dlp?
+EdBot 3.0 is a significant improvement over its predecessors, but some quirks may remain. Use the code responsibly and adapt it to your needs.
+
+---
+
+## Development History
+
+### EdBot 2.0
+
+- Introduced two primary scripts:
+  - `edbot_command.py`: Handles commands like playing MP3s and sending messages.
+  - `edbot_listener.py`: Listens for keywords and performs actions like weather updates.
+- Cleaned up code with the help of ChatGPT.
+
+### EdBot 1.0
+
+- Consisted of four main scripts:
+  - `WeatherBot.py`: The original bot, now renamed `edbot_listener.py`.
+  - `WeatherBotCommand.py`: Now `edbot_command.py`, included TTS functionality.
+  - `IncomingTextsServer.py` and `TextMessagePoster.py`: Removed due to potential abuse.
+- Early experimentation with OpenAI APIs.
+
+---
+
+## Things to Know
+
+- **No `main.py`**: Each script must be run individually.
+- **Environment Variables**: Use the provided `.env` template.
+- **Dependencies**:
+  - Python 3.8+ and the packages listed in `requirements.txt`.
+  - FFMPEG for audio features.
+- ~~**TTS Setup**:~~
+  - ~~Requires an AWS account.~~
+  - ~~Create a `.aws` folder in your home directory with a credentials file.~~
+
+---
+
+## Todo
+
+- Integrate EdBot into a Boston Dynamics Spot robot (requires $75,000 in funding).
+
+---
+
+Enjoy using EdBot 3.0! Contributions and feedback are welcome.
