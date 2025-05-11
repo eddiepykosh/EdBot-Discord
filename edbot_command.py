@@ -17,18 +17,16 @@ import aiohttp
 import asyncio
 from datetime import datetime
 
+from config import (
+    DISCORD_TOKEN, AWS_ID, AWS_SECRET, API_BASE_URL, mathID, DATA_PATH, ASSETS_AUDIO_PATH, ASSETS_TEXT_PATH
+)
+from utils import load_pickle, save_pickle
 from common.logger import get_logger
+
 logger = get_logger(__name__)
 
-load_dotenv()
 # Find where script is running
-script_dir = os.path.dirname(__file__)
-
-mathID = os.getenv('WRA_MATH_KEY')
-TOKEN = os.getenv('DISCORD_TOKEN')
-AWS_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET = os.getenv("AWS_SECRET_ACCESS_KEY")
-API_BASE_URL = os.getenv("API_BASE_URL")
+#script_dir = os.path.dirname(__file__)
 
 reddit = asyncpraw.Reddit(
     client_id=os.getenv('CLIENT_ID'),
@@ -37,7 +35,7 @@ reddit = asyncpraw.Reddit(
 )
 
 # Rock Paper Scissor Stuff
-score_file = os.path.join(script_dir, 'data', 'scores.pkl')
+score_file = os.path.join(DATA_PATH, 'scores.pkl')
 # Function to load scores from file
 async def load_scores():
     if os.path.exists(score_file):
@@ -360,30 +358,30 @@ async def join(ctx):
 
 @bot.command(name='meme', help='when someone sends an absolute MEME')
 async def meme(ctx):
-	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'notfunny.mp3'), "https://c.tenor.com/BM-QtYCZIloAAAAd/not-funny-didnt-laugh.gif")
+	await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, 'notfunny.mp3'), "https://c.tenor.com/BM-QtYCZIloAAAAd/not-funny-didnt-laugh.gif")
 
 @bot.command(name='walled', help='GET TILTED')
 async def walled(ctx):
-	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'notfunny.mp3'), "http://files.pykosh.com/files/gif/wall.gif")
+	await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, 'notfunny.mp3'), "http://files.pykosh.com/files/gif/wall.gif")
 
 @bot.command(name='PVS', help='GET HYPER')
 async def walled(ctx):
-	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'songs', 'PVS.mp3'), "I'm sorry")
+	await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, 'songs', 'PVS.mp3'), "I'm sorry")
 	
 @bot.command(name='bamba', help='GET SINGING')
 async def walled(ctx):
-	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'songs', 'LaBamba.mp3'), "I'm sorry")
+	await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, 'songs', 'LaBamba.mp3'), "I'm sorry")
 
 @bot.command(name='ben', help='god help us all')
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def ben(ctx):
 	benVoice = random.choice(["ben/ben_laugh.mp3" , "ben/ben_yes.mp3", "ben/ben_no.mp3", "ben/ben_grunt.mp3"])
-	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', benVoice), "calling ben")
+	await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, benVoice), "calling ben")
 	
 @bot.command(name='bow', help='LETS GET IT')
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def ben(ctx):
-	await audioPlayer(ctx, os.path.join(script_dir, 'assets', 'audio', 'songs', 'BOW.webm'), "on it")
+	await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, 'songs', 'BOW.webm'), "on it")
 
 # Pings the people listed in the .env that it's time to game		
 @bot.command(name='fortnite', help='fortnite')
@@ -399,26 +397,26 @@ async def valorant(ctx):
 
 @bot.command(name='kurt', help='my opinion on kurt thomspon')
 async def kurt(ctx):
-	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'kurt.txt'))
+	await copyPasta(ctx, os.path.join(ASSETS_TEXT_PATH, 'copy_pastas', 'kurt.txt'))
 
 @bot.command(name='tuning', help='my opinion on tuning')
 async def tuning(ctx):
-	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'tune.txt'))
+	await copyPasta(ctx, os.path.join(ASSETS_TEXT_PATH, 'copy_pastas', 'tune.txt'))
 	
 @bot.command(name='yamaha', help='my opinion on yamaha')
 @commands.cooldown(1, 15, commands.BucketType.user) 
 async def yamaha(ctx):
-	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'yamaha.txt'))
+	await copyPasta(ctx, os.path.join(ASSETS_TEXT_PATH, 'copy_pastas', 'yamaha.txt'))
 
 @bot.command(name='genz', help='my opinion on zoomers')
 @commands.cooldown(1, 15, commands.BucketType.user)
 async def genz(ctx):
-	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'genz.txt'))
+	await copyPasta(ctx, os.path.join(ASSETS_TEXT_PATH, 'copy_pastas', 'genz.txt'))
 	
 @bot.command(name='cctuba', help='my opinion on cctuba')
 @commands.cooldown(1, 15, commands.BucketType.user)
 async def cctuba(ctx):
-	await copyPasta(ctx, os.path.join(script_dir, 'assets', 'text', 'copy_pastas', 'cctuba.txt'))
+	await copyPasta(ctx, os.path.join(ASSETS_TEXT_PATH, 'copy_pastas', 'cctuba.txt'))
 
 @bot.command(name='rps')
 async def rock_paper_scissors(ctx):
@@ -508,127 +506,15 @@ async def score(ctx):
 
 @bot.command(name='swear_count', help='how many times did you say a bad word?')
 async def swear_count(ctx):
-    swear_counts_file = os.path.join(script_dir, 'data', 'swear_counts.pkl')
+    swear_counts_file = os.path.join(DATA_PATH, 'swear_counts.pkl')
     swear_counts = load_swear_counts(swear_counts_file)
     user_id = str(ctx.author.id)
     total_swears = swear_counts.get(user_id, 0)
     await ctx.send(f"You have sworn a total of {total_swears} time(s).")
 
-# @bot.command(name='player_info', help='Get an NFL players basic info')
-# async def player_info(ctx, first_name: str, last_name: str):
-#     # Construct the API URL
-#     url = f"{API_BASE_URL}/getPlayerInfo?firstName={first_name}&lastName={last_name}"
-    
-#     # Make the API request
-#     async with aiohttp.ClientSession() as session:
-#         async with session.get(url) as response:
-#             if response.status == 200:
-#                 data = await response.json()
-                
-#                 # Create a Discord embed with the player information
-#                 embed = discord.Embed(title=f"Player Info: {first_name} {last_name}", color=discord.Color.blue())
-#                 embed.add_field(name="Age", value=data["age"], inline=True)
-#                 embed.add_field(name="Team", value=data["team"], inline=True)
-#                 embed.add_field(name="Position", value=data["pos"], inline=True)
-#                 embed.add_field(name="School", value=data["school"], inline=False)
-                
-#                 await ctx.send(embed=embed)
-#             else:
-#                 await ctx.send(f"Who tf is {first_name} {last_name}")
 
-# @bot.command(name='nfl_news', help='Get the latest in NFL News')
-# async def nfl_news(ctx):
-#     url = f"{API_BASE_URL}/NFLNews"
-    
-#     async with aiohttp.ClientSession() as session:
-#         async with session.get(url) as response:
-#             if response.status == 200:
-#                 data = await response.json()
-                
-#                 embed = discord.Embed(title="Top 5 NFL News Stories", color=discord.Color.green())
-                
-#                 for index, story in enumerate(data, start=1):
-#                     embed.add_field(name=f"{index}. {story['title']}", value=f"[Read more]({story['link']})", inline=False)
-                
-#                 await ctx.send(embed=embed)
-#             else:
-#                 await ctx.send("Error: Unable to fetch NFL news.")
 
-# @bot.command(name='nfl_schedule', help='Get the given weeks NFL schedule')
-# async def nfl_schedule(ctx, week: int):
-#     if not 1 <= week <= 18:
-#         await ctx.send("Please enter a valid week number between 1 and 18.")
-#         return
-
-#     url = f"{API_BASE_URL}/NFLGames?week={week}"
-    
-#     async with aiohttp.ClientSession() as session:
-#         async with session.get(url) as response:
-#             if response.status == 200:
-#                 data = await response.json()
-#                 embeds = []
-#                 current_embed = discord.Embed(title=f"NFL Schedule - Week {week}", color=discord.Color.blue())
-#                 field_count = 0
-                
-#                 for game in data:
-#                     game_date = datetime.strptime(game['gameDate'], "%Y%m%d").strftime("%A, %B %d")
-#                     game_time = game['gameTime']
-#                     home_team = game['homeTeam']
-#                     away_team = game['awayTeam']
-                    
-#                     field_name = f"{away_team} @ {home_team}"
-#                     field_value = f"{game_date} at {game_time}\n[View on ESPN]({game['espnLink']})"
-                    
-#                     if field_count >= 25:  # Max 25 fields per embed
-#                         embeds.append(current_embed)
-#                         current_embed = discord.Embed(title=f"NFL Schedule - Week {week} (Continued)", color=discord.Color.blue())
-#                         field_count = 0
-                    
-#                     current_embed.add_field(name=field_name, value=field_value, inline=False)
-#                     field_count += 1
-                
-#                 if field_count > 0:
-#                     embeds.append(current_embed)
-                
-#                 for embed in embeds:
-#                     await ctx.send(embed=embed)
-#             else:
-#                 await ctx.send("Error: Unable to fetch NFL schedule.")
-
-# @bot.command(name='nfl_scores', help='Get some basic live NFL stats')
-# async def nfl_scores(ctx, week: int):
-#     if not 1 <= week <= 18:
-#         await ctx.send("Please enter a valid week number between 1 and 18.")
-#         return
-
-#     url = f"{API_BASE_URL}/NFLScores?week={week}"
-    
-#     async with aiohttp.ClientSession() as session:
-#         async with session.get(url) as response:
-#             if response.status == 200:
-#                 data = await response.json()
-                
-#                 embed = discord.Embed(title=f"NFL Live Scores - Week {week}", color=discord.Color.green())
-                
-#                 for game in data:
-#                     game_status = game['gameStatus']
-#                     if game_status == "Completed":
-#                         status_display = "Final"
-#                     elif game_status == "InProgress":
-#                         status_display = f"Q{game['gameClock']}"
-#                     else:
-#                         status_display = game['gameTime']
-
-#                     field_name = f"{game['awayTeam']} @ {game['homeTeam']}"
-#                     field_value = f"{game['awayPts']} - {game['homePts']} ({status_display})"
-                    
-#                     embed.add_field(name=field_name, value=field_value, inline=False)
-                
-#                 await ctx.send(embed=embed)
-#             else:
-#                 await ctx.send("Error: Unable to fetch NFL scores.")
-
-bot.run(TOKEN) # Kickoff EdBot
+bot.run(DISCORD_TOKEN) # Kickoff EdBot
 
 
 
