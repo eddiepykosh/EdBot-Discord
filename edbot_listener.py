@@ -1,399 +1,220 @@
-# EdBot_Listerner is a Discord bot that listens to messages in channels and responds to certain keywords or phrases.
 import os
 import random
 import discord
-# Weather Thing API
-from pyowm import OWM
-from pyowm.utils import config
-from pyowm.utils import timestamps
-# More Discord stuff
 from discord.ext import commands
-# .env stuff
-from dotenv import load_dotenv
-# Playwright for Fortnite Store
+from pyowm import OWM
 from playwright.async_api import async_playwright
-# Pickle for saving swear counts
-import pickle
 
+from config import (
+	DISCORD_TOKEN, OWM_TOKEN, WEATHER_PERSON, BULLIED_USER,
+	ASSETS_TEXT_PATH, DATA_PATH
+)
+from utils import (
+	load_list_from_file, load_swears, load_pickle, save_pickle
+)
 from common.logger import get_logger
+
 logger = get_logger(__name__)
-load_dotenv()
 
-# Find where script is running
-script_dir = os.path.dirname(__file__)
-
-# initalize Lists
-speaker_loop = [0]
-current_speaker = ['']
-city_list = []
-bully_words = []
-edbot_responses_list = []
-
-# Gets the Weather Lady
-weather_person = os.getenv('WEATHER_PERSON')
-# This part gets cites from  cities.txt in assets/text.
-city_file_path = os.path.join(script_dir, 'assets', 'text', 'cities.txt')
-try:
-	with open(city_file_path, 'r') as file:
-        # Read the file
-		city_file_content = file.read()
-		city_list += city_file_content.split("\n")
-		file.close()
-except FileNotFoundError:
-    logger.error(f"The file {city_file_path} was not found.")
-
-
-# EdBot has some anger issues.  You can set a user for him to bully in the .env file
-bullied_user = os.getenv('BULLIED_USER')
-# This part gets cites from  bully_words.txt in assets/text.
-bully_file_path = os.path.join(script_dir, 'assets', 'text', 'bully_words.txt')
-try:
-	with open(bully_file_path, 'r') as file:
-        # Read the file
-		bully_file_content = file.read()
-		bully_words += bully_file_content.split("\n")
-		file.close()
-except FileNotFoundError:
-    logger.error(f"The file {bully_file_path} was not found.")
-
-edbot_response_file_path = os.path.join(script_dir, 'assets', 'text', 'edbot_responses.txt')
-try:
-	with open(edbot_response_file_path, 'r') as file:
-        # Read the file
-		edbot_response_content = file.read()
-		edbot_responses_list += edbot_response_content.split("\n")
-		file.close()
-except FileNotFoundError:
-    logger.error(f"The file {edbot_response_file_path} was not found.")
-
-# Function to load swears from a file
-def load_swears(filename):
-    swears = {'not_bad': [], 'bad': [], 'really_bad': []}
-    try:
-        with open(filename, 'r') as file:
-            for line in file:
-                severity, swear = line.strip().split(',')
-                if severity in swears:
-                    swears[severity].append(swear)
-    except FileNotFoundError:
-        logger.error(f"Error: The file '{filename}' was not found.")
-    return swears
-
-# Function to load swear counts from a file
-def load_swear_counts(filename):
-    if os.path.exists(filename):
-        with open(filename, 'rb') as file:
-            return pickle.load(file)
-    return {}
-
-def save_swear_counts(filename, swear_counts):
-    with open(filename, 'wb') as file:
-        pickle.dump(swear_counts, file)
-
-swears = load_swears(os.path.join(script_dir, 'assets', 'text', 'swears.txt'))
-swear_counts_file = os.path.join(script_dir, 'data', 'swear_counts.pkl')
-swear_counts = load_swear_counts(swear_counts_file)
+# Load static data
+logger.info("Loading static data...")
+city_list = load_list_from_file(os.path.join(ASSETS_TEXT_PATH, 'cities.txt'))
+bully_words = load_list_from_file(os.path.join(ASSETS_TEXT_PATH, 'bully_words.txt'))
+edbot_responses_list = load_list_from_file(os.path.join(ASSETS_TEXT_PATH, 'edbot_responses.txt'))
+swears = load_swears(os.path.join(ASSETS_TEXT_PATH, 'swears.txt'))
+swear_counts_file = os.path.join(DATA_PATH, 'swear_counts.pkl')
+swear_counts = load_pickle(swear_counts_file)
 
 swear_responses = {
-    'not_bad': ["pottymouth", "that's not nice"],
-    'bad': ["you're starting to hurt my feelings", "i don't know why you keep doing that"],
-    'really_bad': ["okay now i'm going to cry", "that's not nice at all :(", "why do you hate me"]
+	'not_bad': ["pottymouth", "that's not nice"],
+	'bad': ["you're starting to hurt my feelings", "i don't know why you keep doing that"],
+	'really_bad': ["okay now i'm going to cry", "that's not nice at all :(", "why do you hate me"]
 }
 
-# Function to count swears in a message
-def count_swears(message_content, swears):
-    words_in_message = message_content.lower().split()
-    swear_counts = {'not_bad': 0, 'bad': 0, 'really_bad': 0}
-
-    for word in words_in_message:
-        for severity, swear_list in swears.items():
-            if word in swear_list:
-                swear_counts[severity] += 1
-
-    return swear_counts
-
-# Function to get a random response based on severity
-def get_random_response(severity):
-    if severity in swear_responses:
-        return random.choice(swear_responses[severity])
-    return ""
-
-# Get Discord and Weather Manager tokens from .env file
-TOKEN = os.getenv('DISCORD_TOKEN')
-owm = OWM(os.getenv('OWM_TOKEN'))
+# Weather setup
+logger.info("Setting up weather manager...")
+owm = OWM(OWM_TOKEN)
 mgr = owm.weather_manager()
 
-# Init Discord Client variable
+# Discord client setup
+logger.info("Setting up Discord client...")
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-# Connected 
+# Speaker tracking
+speaker_loop = [0]
+current_speaker = ['']
+
+def count_swears(message_content, swears):
+	logger.debug("Counting swears in message...")
+	words = message_content.lower().split()
+	counts = {'not_bad': 0, 'bad': 0, 'really_bad': 0}
+	for word in words:
+		for severity, swear_list in swears.items():
+			if word in swear_list:
+				counts[severity] += 1
+	logger.debug(f"Swear counts: {counts}")
+	return counts
+
+def get_random_response(severity):
+	logger.debug(f"Getting random response for severity: {severity}")
+	return random.choice(swear_responses[severity]) if severity in swear_responses else ""
+
 @client.event
 async def on_ready():
 	logger.info(f'{client.user.name} has connected to Discord!')
 
-'''
-Where all the magic happens.
-
-Anytime a message comes in to any 
-Discord EdBot/WeatherBot is in, this block is triggered.
-'''
-
 @client.event
 async def on_message(message):
-	# A jerk function that says mean things to the targeted user.
-	if str(message.author) == bullied_user:
-		chance_to_bully = random.randrange(1, 20)
-		logger.info(f'{message.author} is talking')
-		if chance_to_bully == 2:
-			response = random.choice(bully_words)
-			await message.channel.send(response)
-			
-	# Stops from talking to himself.
+	logger.debug(f"Received message: {message.content} from {message.author}")
 	if message.author == client.user:
+		logger.debug("Message is from the bot itself, ignoring.")
 		return
-	
-	# Checks if someone is being talking to much.	
+
+	# Bully logic
+	if str(message.author) == BULLIED_USER:
+		logger.debug(f"Checking bully logic for user: {message.author}")
+		if random.randrange(1, 20) == 2:
+			response = random.choice(bully_words)
+			logger.info(f"Sending bully response: {response}")
+			await message.channel.send(response)
+
+	# Speaker spam detection
 	if message.author == current_speaker[0]:
 		speaker_loop[0] += 1
-	else: 
+	else:
 		current_speaker[0] = message.author
 		speaker_loop[0] = 1
 	if speaker_loop[0] >= 10:
+		logger.info(f"Speaker spam detected for user: {message.author}")
 		speaker_loop[0] = 0
-		response = f"Hey {message.author.mention} can you like quiet down?"
-		await message.channel.send(response)			
-		
+		await message.channel.send(f"Hey {message.author.mention} can you like quiet down?")
 
-	# If ANY part of someones message contains a city in city_list, then we proceed. 
-	if any(cities.lower() in message.content.lower() for cities in city_list):
-		try: 
-        # Normalize the message content and split into words
+	# Weather command
+	if any(city.lower() in message.content.lower() for city in city_list):
+		logger.debug("Weather command detected.")
+		try:
 			message_content = message.content.lower()
 			words_in_message = set(message_content.split())
-
-			# Create a set from city_list with lowercase for comparison
-			city_listset = {city.lower() for city in city_list}
-
-			# Find intersection of sets to get matching city names
-			matched_cities = words_in_message.intersection(city_listset)
-			
+			city_set = {city.lower() for city in city_list}
+			matched_cities = words_in_message.intersection(city_set)
 			if matched_cities:
-				logger.info('Running city command')
-				logger.debug(message.author)
-				
-				# Handling multiple cities in one message; just taking the first matched city for simplicity
-				first_matched_city = matched_cities.pop()
-				
-				# Fetch weather using the matched city
-				observation = mgr.weather_at_place(first_matched_city + ", US")
+				city = matched_cities.pop()
+				logger.info(f"Fetching weather for city: {city}")
+				observation = mgr.weather_at_place(city + ", US")
 				w = observation.weather
-				temperature = w.temperature('fahrenheit')['temp']
-				detailed_status = w.detailed_status.lower()
-
-				response = f"Hey {weather_person}! Here is the weather in {first_matched_city.capitalize()}: {detailed_status}, with a temperature of {temperature}°F."
+				temp = w.temperature('fahrenheit')['temp']
+				status = w.detailed_status.lower()
+				response = f"Hey {WEATHER_PERSON}! Here is the weather in {city.capitalize()}: {status}, with a temperature of {temp}°F."
+				logger.info(f"Sending weather response: {response}")
 				await message.channel.send(response)
-
 		except Exception as e:
-			# Proper error logging
-			logger.error(f"An error occurred: {str(e)}")
+			logger.error(f"Weather error: {str(e)}")
 			await message.channel.send("I pooped.")
 
+	# "Who would win" command
 	if 'who would win' in message.content.lower():
+		logger.debug("Who would win command detected.")
 		try:
 			content_lower = message.content.lower()
-			# Find the position of "or" in the message
 			words = content_lower.split()
 			if "or" not in words:
 				raise ValueError("No 'or' found in message.")
-
 			or_index = words.index("or")
-			
-			# Extract fighters: Consider words before and after "or"
-			# Join words from 'who would win' to 'or' (excluding both)
 			left_start = max(0, words.index("win") + 1) if "win" in words else 0
-			right_end = len(words) - 1
-			
-			# Take words from 'win' to 'or' for the left fighter and 'or' to the end for the right fighter
 			fighter_left = ' '.join(words[left_start:or_index])
-			fighter_right = ' '.join(words[or_index + 1:right_end + 1])
-			
-			# Validate fighters
+			fighter_right = ' '.join(words[or_index + 1:])
 			if not fighter_left or not fighter_right:
 				raise ValueError("Fighter names cannot be parsed correctly.")
-
-			# Choose a random fighter
-			fighter_options = [fighter_left, fighter_right]
-			winner = random.choice(fighter_options)
-			response = f"{winner} would win."
-			await message.channel.send(response)
-		
+			winner = random.choice([fighter_left, fighter_right])
+			logger.info(f"Who would win result: {winner}")
+			await message.channel.send(f"{winner} would win.")
 		except Exception as e:
-			logger.error(f"Error: {str(e)}")
+			logger.error(f"Who would win error: {str(e)}")
 			await message.channel.send("You triggered my 'who would win' command but the parameters were invalid.")
 
+	# Fortnite Store screenshot
 	if 'FORTNITE STORE PLS' in message.content.upper():
+		logger.debug("Fortnite store command detected.")
 		await message.channel.send("One sec")
+		try:
+			async with async_playwright() as p:
+				browser = await p.chromium.launch()
+				context = await browser.new_context(
+					user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36",
+					viewport={'width': 1920, 'height': 1080},
+					device_scale_factor=1,
+					color_scheme='light',
+					locale='en-US'
+				)
+				page = await context.new_page()
+				await page.goto('https://fnbr.co/shop')
+				os.makedirs(DATA_PATH, exist_ok=True)
+				screenshot_path = os.path.join(DATA_PATH, 'fortnite.png')
+				await page.screenshot(path=screenshot_path, full_page=True)
+				await browser.close()
+				logger.info(f"Fortnite store screenshot saved to: {screenshot_path}")
+				await message.channel.send(file=discord.File(screenshot_path))
+		except Exception as e:
+			logger.error(f"Fortnite store error: {str(e)}")
 
-		# Start Playwright and launch a browser
-		async with async_playwright() as p:
-			# Define a desktop user agent
-			user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+	# Fun and meme responses
+	triggers = [
+		('uwu', lambda: f"{message.author.mention} stop that. "),
+		('guess whos back', lambda: "back again"),
+		('pog', lambda: "<:retrenched:885980310754459730>" if random.randrange(1, 5) == 2 else None),
+		('todd', lambda: "im just a shitty toddbot"),
+		('@everyone', lambda: f"You have commited a grave sin {message.author.mention}"),
+		('@here', lambda: f"You're on thin fucking ice {message.author.mention}"),
+		("how's the weather", lambda: "IT'S RAINING SIDEWAYS"),
+		("do you have an umbrella", lambda: "HAD ONE"),
+		("where is it", lambda: "INSIDE OUT - TWO MILES AWAY"),
+		("anything we can do for you", lambda: "BRING ME SOME SOUP"),
+		("what kind", lambda: "CHUNKY"),
+		("shut up", lambda: "I'M SO FUCKING SCARED RIGHT NOW, YOU SHUT UP"),
+		("look at him and tell me there's a god", lambda: "He made me in his own image."),
+		("pokemon", lambda: "Pokemon GO to the polls"),
+		("xd", lambda: "https://tenor.com/view/drinking-bleach-mug-clean-yourself-cleaning-gif-10137452"),
+		("edbot", lambda: random.choice(edbot_responses_list)),
+	]
+	for trigger, response_func in triggers:
+		if trigger in message.content.lower():
+			logger.debug(f"Trigger detected: {trigger}")
+			response = response_func()
+			if response:
+				logger.info(f"Sending trigger response: {response}")
+				await message.channel.send(response)
+			if trigger == "fly me to the moon":
+				logger.info("Sending additional responses for 'fly me to the moon'")
+				await message.channel.send("let me kick it's fucking ass")
+				await message.channel.send("let me show it what i learned")
+				await message.channel.send("in my moon jujitsu class")
+			break
 
-			# Launch the browser and create a new context with the specified user agent
-			browser = await p.chromium.launch()
-			context = await browser.new_context(
-				user_agent=user_agent,
-                viewport={'width': 1920, 'height': 1080},
-                device_scale_factor=1,
-                color_scheme='light',
-                locale='en-US'
-			)
-			
-			# Open a new page within the context
-			page = await context.new_page()
-
-			# Navigate to the page
-			await page.goto('https://fnbr.co/shop')
-
-			# Define the path for the screenshot
-			script_dir = os.path.dirname(os.path.abspath(__file__))  # Gets the directory of the current script
-			data_dir = os.path.join(script_dir, 'data')
-			os.makedirs(data_dir, exist_ok=True)  # Creates the data directory if it doesn't exist
-
-			screenshot_path = os.path.join(data_dir, 'fortnite.png')
-			await page.screenshot(path=screenshot_path, full_page=True)
-
-			# Close the browser
-			await browser.close()
-			logger.debug("done")
-
-			# Send the screenshot
-			await message.channel.send(file=discord.File(screenshot_path))
-
-	'''
-	The rest of this is just generic comeback statements.
-	'''
-
-	if 'uwu' in message.content.lower():
-		logger.info(str(message.author) + " said uwu")
-		response = message.author.mention + " stop that. "
-		await message.channel.send(response)
-		
-	if 'guess whos back' in message.content.lower():
-		logger.info(str(message.author) + " said guess whos back")
-		response = "back again"
-		await message.channel.send(response)
-		
-	if 'pog' in message.content.lower(): 
-		logger.info(str(message.author) + " said pog")
-		chancetoPog = random.randrange(1, 5)  # This probably isn't the best way to do RNG
-		if chancetoPog == 2:
-			response = "<:retrenched:885980310754459730>"
-			await message.channel.send(response)
-	
-	# if 'austin' in message.content.lower():
-	# 	print(message.author)
-	# 	response = "<@690012125430546562>"
-	# 	await message.channel.send(response)
-	
-	if 'todd' in message.content.lower(): # EdBot gets meta
-		logger.info(str(message.author) + " said todd")
-		response = "im just a shitty toddbot"
-		await message.channel.send(response)
-	
-	if '@everyone' in message.content.lower():
-		logger.info(str(message.author) + " said @everyone")
-		response = "You have commited a grave sin " + message.author.mention
-		await message.channel.send(response)
-		
-	if '@here' in message.content.lower():
-		logger.info(str(message.author) + " said @here")
-		response = "You're on thin fucking ice " + message.author.mention
-		await message.channel.send(response)
-		
-	if "how's the weather" in message.content.lower():
-		logger.info(str(message.author) + " said how's the weather")
-		response = "IT'S RAINING SIDEWAYS"
-		await message.channel.send(response)
-
-	if "do you have an umbrella" in message.content.lower():
-		logger.info(str(message.author) + " said do you have an umbrella")
-		response = "HAD ONE"
-		await message.channel.send(response)
-		
-	if "where is it" in message.content.lower():
-		logger.info(str(message.author) + " said where is it")
-		response = "INSIDE OUT - TWO MILES AWAY"
-		await message.channel.send(response)
-
-	if "anything we can do for you" in message.content.lower():
-		logger.info(str(message.author) + " said anything we can do for you")
-		response = "BRING ME SOME SOUP"
-		await message.channel.send(response)
-
-	if "what kind" in message.content.lower():
-		logger.info(str(message.author) + " said what kind")
-		response = "CHUNKY"
-		await message.channel.send(response)
-		
-	if "shut up" in message.content.lower():
-		logger.info(str(message.author) + " said shut up")
-		response = "I'M SO FUCKING SCARED RIGHT NOW, YOU SHUT UP"
-		await message.channel.send(response)
-		
-	if "look at him and tell me there's a god" in message.content.lower():
-		logger.info(str(message.author) + " said look at him and tell me there's a god")
-		response = "He made me in his own image."
-		await message.channel.send(response)
-
-	if "fly me to the moon" in message.content.lower():
-		logger.info(str(message.author) + " said fly me to the moon")
-		response1 = "let me kick it's fucking ass"
-		response2 = "let me show it what i learned"
-		response3 = "in my moon jujitsu class"
-		await message.channel.send(response1)
-		await message.channel.send(response2)
-		await message.channel.send(response3)
-	
-	if "pokemon" in message.content.lower():
-		logger.info(str(message.author) + " said pokemon")
-		response = "Pokemon GO to the polls"
-		await message.channel.send(response)
-		
-	if "xd" in message.content.lower():
-		logger.info(str(message.author) + " said xd")
-		response = "https://tenor.com/view/drinking-bleach-mug-clean-yourself-cleaning-gif-10137452"
-		await message.channel.send(response)
-		
-	if "edbot" in message.content.lower():
-		logger.info(str(message.author) + " said edbot")
-		edbot_response = random.choice(edbot_responses_list)
-		await message.channel.send(edbot_response)
-	
+	# Swear tracking
 	swear_count_message = count_swears(message.content, swears)
 	total_swears = sum(swear_count_message.values())
-
 	if total_swears > 0:
+		logger.debug(f"Swear tracking: {swear_count_message}")
 		user_id = str(message.author.id)
-		if user_id not in swear_counts:
-			swear_counts[user_id] = 0
-		swear_counts[user_id] += total_swears
-		save_swear_counts(swear_counts_file, swear_counts)
+		swear_counts[user_id] = swear_counts.get(user_id, 0) + total_swears
+		save_pickle(swear_counts_file, swear_counts)
+		logger.info(f"Updated swear counts for user {user_id}: {swear_counts[user_id]}")
+		# Random chance to respond to swears
+		if swear_count_message['really_bad'] > 0 and random.random() < 0.5:
+			response = get_random_response('really_bad')
+			logger.info(f"Sending really_bad swear response: {response}")
+			await message.channel.send(response)
+		elif swear_count_message['bad'] > 0 and random.random() < 0.3:
+			response = get_random_response('bad')
+			logger.info(f"Sending bad swear response: {response}")
+			await message.channel.send(response)
+		elif swear_count_message['not_bad'] > 0 and random.random() < 0.1:
+			response = get_random_response('not_bad')
+			logger.info(f"Sending not_bad swear response: {response}")
+			await message.channel.send(response)
 
-		#response = f"Your message had {total_swears} swear(s)."
-		#await message.channel.send(response)
-
-		# Random chance to send a response based on severity
-		if swear_count_message['really_bad'] > 0 and random.random() < 0.5:  # 50% chance
-			await message.channel.send(get_random_response('really_bad'))
-		elif swear_count_message['bad'] > 0 and random.random() < 0.3:  # 30% chance
-			await message.channel.send(get_random_response('bad'))
-		elif swear_count_message['not_bad'] > 0 and random.random() < 0.1:  # 10% chance
-			await message.channel.send(get_random_response('not_bad'))
-		
-client.run(TOKEN) # Kicks off the script
-
-
-
+if __name__ == "__main__":
+	logger.info("Starting bot...")
+	client.run(DISCORD_TOKEN)
