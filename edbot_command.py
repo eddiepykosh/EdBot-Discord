@@ -28,12 +28,6 @@ logger = get_logger(__name__)
 # Find where script is running
 #script_dir = os.path.dirname(__file__)
 
-reddit = asyncpraw.Reddit(
-    client_id=os.getenv('CLIENT_ID'),
-    client_secret=os.getenv('CLIENT_SECRET'),
-    user_agent=os.getenv('USER_AGENT'),
-)
-
 # Rock Paper Scissor Stuff
 score_file = os.path.join(DATA_PATH, 'scores.pkl')
 # Function to load scores from file
@@ -283,18 +277,37 @@ async def domath(ctx, *,mathRequest):
 	await ctx.send(answer)
 
 # Ripped the logic of this straight out of Stack Overflow
-@bot.command(name='reddit', help='Pull a hot post from the sub of your choice.   usage: ./reddit <inset sub here> ')
-async def redditRandom(ctx, *,redditSub):
-	try:
-		posts = []
-		sub = await reddit.subreddit(redditSub)
-		hot = sub.hot(limit = 20)
-		async for submission in hot:
-			posts.append(submission)
-		random_post = random.choice(posts)
-		await ctx.send(random_post.url)
-	except:
-		await ctx.send("reddit command failed :(")
+@bot.command(name='reddit', help='Pull a hot post from the sub of your choice')
+async def redditRandom(ctx, *, redditSub):
+    try:
+        # Initialize Reddit client inside async context
+        async with asyncpraw.Reddit(
+            client_id=os.getenv('REDDIT_CLIENT_ID'),
+            client_secret=os.getenv('REDDIT_CLIENT_SECRET'),
+            user_agent=os.getenv('REDDIT_USER_AGENT'),
+        ) as reddit:
+            try:
+                async with asyncio.timeout(10):  # Lowercase timeout
+                    sub = await reddit.subreddit(redditSub)
+                    
+                posts = []
+                async for submission in sub.hot(limit=20):
+                    posts.append(submission)
+                
+                if not posts:
+                    await ctx.send(f"No posts found in r/{redditSub}")
+                    return
+                
+                await ctx.send(random.choice(posts).url)
+                
+            except asyncio.TimeoutError:
+                await ctx.send("Reddit request timed out. Try again later")
+                
+    except asyncpraw.exceptions.PRAWException as e:
+        await ctx.send(f"Reddit error: {str(e)}")
+    except Exception as e:
+        await ctx.send(f"Command failed: {str(e)}")
+
 
 # Cooldown Warning
 @bot.event
