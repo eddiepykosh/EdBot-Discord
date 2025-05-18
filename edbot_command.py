@@ -188,11 +188,20 @@ from discord.ext import commands
 
 intents = discord.Intents().all()
 client = discord.Client(intents=intents)
-bot = commands.Bot(command_prefix='./',intents=intents)
+bot = commands.Bot(command_prefix='./', intents=intents)
 
 @bot.event
 async def on_ready():
-	logger.info('im here') # Giving EdBot Depression
+    logger.info('im here') # Giving EdBot Depression
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    if message.content.startswith('./'):
+        guild_name = message.guild.name if message.guild else "Direct Message"
+        logger.info(f"Command received: {message.content} from {message.author} in {message.channel} (Server: {guild_name})")
+    await bot.process_commands(message)
 
 # Begin list of commands
 
@@ -219,32 +228,36 @@ async def parrot(ctx, *,whatToParrot):
 
 # Use AWS Poly for TTS
 @bot.command(name='tts', help='lol funny voice')
-async def tts(ctx, *,whatTotts):
-	text = str(whatTotts)
-	session = Session(aws_access_key_id=AWS_ID, aws_secret_access_key=AWS_SECRET)
-	polly = session.client('polly', region_name='us-east-2')
-	try:
-		response = polly.synthesize_speech(Text=text, OutputFormat='mp3', VoiceId='Brian')
+async def tts(ctx, *, whatTotts):
+    text = str(whatTotts)
+    logger.info("TTS: " + text)
+    session = Session(aws_access_key_id=AWS_ID, aws_secret_access_key=AWS_SECRET)
+    polly = session.client('polly', region_name='us-east-2')
+    try:
+        response = polly.synthesize_speech(Text=text, OutputFormat='mp3', VoiceId='Brian')
 
-		if 'AudioStream' in response:
-	
-			with closing(response['AudioStream']) as stream:
-				output = ('last_tts.mp3')
-				try:
-					with open(output, 'wb') as file:
-						file.write(stream.read())
-						print("Made TTS")
-					
-				except IOError as error:
-					print(error)
-					return error
-	except ClientError as error:
-		print(error)
-		return error
-	except BotoCoreError as error:
-		print(error)
-		return error
-	await audioPlayer(ctx, 'last_tts.mp3', "TTS Created")
+        if 'AudioStream' in response:
+
+            with closing(response['AudioStream']) as stream:
+                output = 'last_tts.mp3'
+                try:
+                    with open(output, 'wb') as file:
+                        file.write(stream.read())
+                        logger.info("Made TTS")
+
+                except IOError as error:
+                    logger.error(error)
+                    await ctx.send("IOError: " + str(error))
+                    return error
+    except ClientError as error:
+        logger.error(error)
+        await ctx.send("ClientError: " + str(error))
+        return error
+    except BotoCoreError as error:
+        logger.error(error)
+        await ctx.send("BotoCoreError: " + str(error))
+        return error
+    await audioPlayer(ctx, 'last_tts.mp3', "TTS Created")
 
 # Will never actually ban someone. Just a social experiment 
 @bot.command(name='ban', help='/ban @username')
