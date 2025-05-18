@@ -383,7 +383,11 @@ async def walled(ctx):
 	
 @bot.command(name='bamba', help='GET SINGING')
 async def walled(ctx):
-	await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, 'songs', 'LaBamba.mp3'), "I'm sorry")
+    await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, 'songs', 'LaBamba.mp3'), "I'm sorry")
+      
+@bot.command(name='kitteroast', help="GET ROASTED")
+async def kitteroast(ctx):
+	await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, 'songs', 'kitte_roast.m4a'), "I'm NOT sorry")
 
 @bot.command(name='ben', help='god help us all')
 @commands.cooldown(1, 5, commands.BucketType.user)
