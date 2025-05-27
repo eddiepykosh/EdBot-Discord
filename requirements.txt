@@ -1,7 +1,7 @@
 asyncpraw>=7.7.1
 boto3>=1.34.78
 botocore>=1.34.78
-discord.py==2.3.2
+discord.py
 ffmpeg>=1.4
 Flask==3.0.2
 pyowm>=3.3.0
