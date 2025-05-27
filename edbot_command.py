@@ -61,7 +61,7 @@ def load_swear_counts(filename):
 
 # Logic for Youtube Downloader
 
-yt_dlp.utils.bug_reports_message = lambda: ''
+# yt_dlp.utils.bug_reports_message = lambda: '' breaks everything
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
