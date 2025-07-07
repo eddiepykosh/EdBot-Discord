@@ -11,3 +11,4 @@ twilio>=9.0.4
 wolframalpha>=5.0.0
 yt_dlp>=2025.4.30
 # discord.py[voice]
+PyNaCl
