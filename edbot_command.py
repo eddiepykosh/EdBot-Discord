@@ -381,6 +381,7 @@ async def join(ctx):
     await channel.connect()
 
 # Misc Commands
+# Commands with text and audio 
 
 @bot.command(name='meme', help='when someone sends an absolute MEME')
 async def meme(ctx):
@@ -413,17 +414,18 @@ async def ben(ctx):
 async def ben(ctx):
 	await audioPlayer(ctx, os.path.join(ASSETS_AUDIO_PATH, 'songs', 'BOW.webm'), "on it")
 
-# Pings the people listed in the .env that it's time to game		
+# Commands that pings the people listed in the .env that it's time to game		
 @bot.command(name='fortnite', help='fortnite')
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def fortnite(ctx):
 	await callingAllGamers(ctx, 'FORTNITE_PEOPLE', "Fortnite time")
-	
-# Pings the people listed in the .env that it's time to game
+
 @bot.command(name='valorant', help='valoreeee')
 @commands.cooldown(1, 15, commands.BucketType.user) #Cooldown to prevent spam
 async def valorant(ctx):
 	await callingAllGamers(ctx, 'VALORANT_PEOPLE', "Valorant time")
+
+# Copy pasta commands
 
 @bot.command(name='kurt', help='my opinion on kurt thomspon')
 async def kurt(ctx):
@@ -448,6 +450,70 @@ async def genz(ctx):
 async def cctuba(ctx):
 	await copyPasta(ctx, os.path.join(ASSETS_TEXT_PATH, 'copy_pastas', 'cctuba.txt'))
 
+# Commands that grab random text
+
+# Method to post a random quote file from a directory
+async def hypeMan(ctx, txtFileDir):
+    try:
+        # Get all .txt files in the directory
+        files = [f for f in os.listdir(txtFileDir) if f.endswith('.txt')]
+        if not files:
+            await ctx.send("No quote files found in the directory.")
+            return
+        # Pick a random file
+        random_file = random.choice(files)
+        file_path = os.path.join(txtFileDir, random_file)
+        with open(file_path, 'r') as quoteToPost:
+            lines = quoteToPost.readlines()
+        # Prepare non-empty lines
+        content_lines = [line.strip() for line in lines if line.strip()]
+        if not content_lines:
+            await ctx.send("The quote file is empty.")
+            return
+        # Send the first line as the initial message
+        message_content = content_lines[0]
+        message = await ctx.send(message_content)
+        # Edit the message for each subsequent line, appending to previous content
+        for line in content_lines[1:]:
+            await asyncio.sleep(random.uniform(1, 2))
+            message_content += "\n" + line
+            await message.edit(content=message_content)
+    except FileNotFoundError:
+        await ctx.send("Oops! The file was not found.")
+    except IOError:
+        await ctx.send("An error occurred while reading the file.")
+    except discord.HTTPException as e:
+        await ctx.send(f"An error occurred when sending the message: {str(e)}")
+
+async def quotePoster(ctx, quotesFile):
+    try:
+        with open(quotesFile, 'r') as f:
+            quotes = [line.strip() for line in f if line.strip()]
+        if not quotes:
+            await ctx.send("No quotes found.")
+            return
+        quote = random.choice(quotes)
+        await ctx.send(quote)
+    except FileNotFoundError:
+        await ctx.send("Quotes file not found.")
+    except Exception as e:
+        await ctx.send(f"Error reading quotes: {str(e)}")
+
+@bot.command(name='hypeman', help='Energize the Team')
+@commands.cooldown(1, 15, commands.BucketType.user)
+async def hypeman(ctx):
+	await hypeMan(ctx, os.path.join(ASSETS_TEXT_PATH, 'hype_man'))
+     
+@bot.command(name='quote', help='Energize the Team')
+@commands.cooldown(1, 15, commands.BucketType.user)
+async def quote(ctx):
+	await quotePoster(ctx, os.path.join(ASSETS_TEXT_PATH, 'quotes.txt'))
+
+
+
+# Games
+
+# Rock paper scissors
 @bot.command(name='rps')
 async def rock_paper_scissors(ctx):
     username = str(ctx.author)
