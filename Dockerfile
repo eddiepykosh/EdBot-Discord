@@ -38,9 +38,6 @@ RUN pip install --no-cache-dir -r requirements.txt && \
     pip install playwright && \
     playwright install chromium
 
-# Install discord.py from GitHub using Python 3.11
-RUN python3.11 -m pip install -U git+https://github.com/Rapptz/discord.py
-
 # Copy application files
 COPY . .
 
