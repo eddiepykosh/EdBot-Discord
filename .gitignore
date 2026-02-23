@@ -4,3 +4,5 @@
 data/swear_counts.pkl
 logs/__main__.log
 logs/utils.log
+.venv/
+history/
