@@ -13,6 +13,10 @@ mathID = os.getenv('WRA_MATH_KEY')
 WEATHER_PERSON = os.getenv('WEATHER_PERSON')
 BULLIED_USER = os.getenv('BULLIED_USER')
 
+AZURE_AI_ENDPOINT = os.getenv('AZURE_AI_ENDPOINT')
+AZURE_AI_AGENT_NAME = os.getenv('AZURE_AI_AGENT_NAME')
+ALLOWED_CHANNEL_IDS = os.getenv('ALLOWED_CHANNEL_IDS', '')
+
 ASSETS_TEXT_PATH = os.path.join(SCRIPT_DIR, 'assets', 'text')
 ASSETS_AUDIO_PATH = os.path.join(SCRIPT_DIR, 'assets', 'audio')
 DATA_PATH = os.path.join(SCRIPT_DIR, 'data')

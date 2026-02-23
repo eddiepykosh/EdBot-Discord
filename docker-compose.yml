@@ -19,7 +19,17 @@ services:
     env_file: .env
     volumes:
       - /container-data/edbot/data:/app/data
-      - /container-data/edbot/logs:/app/logs  
+      - /container-data/edbot/logs:/app/logs
+    restart: unless-stopped
+
+  edbot-ai:
+    build: .
+    command: python edbot_ai.py
+    env_file: .env
+    volumes:
+      - /container-data/edbot/data:/app/data
+      - /container-data/edbot/logs:/app/logs
+      - /container-data/edbot/history:/app/history
     restart: unless-stopped
 
 volumes:
