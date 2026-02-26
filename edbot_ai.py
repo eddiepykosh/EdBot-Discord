@@ -170,11 +170,19 @@ async def process_message(message: discord.Message):
 
         reply = response.output_text
 
-        # Send reply (respect Discord's 2000 char limit)
-        if len(reply) > 2000:
-            reply = reply[:1997] + "..."
+        # Send reply in chunks respecting Discord's 2000 char limit
+        chunks = []
+        remaining = reply
+        while len(remaining) > 2000:
+            split_at = remaining.rfind(" ", 0, 2000)
+            if split_at == -1:
+                split_at = 2000
+            chunks.append(remaining[:split_at])
+            remaining = remaining[split_at:].lstrip(" ")
+        chunks.append(remaining)
 
-        await message.channel.send(reply)
+        for chunk in chunks:
+            await message.channel.send(chunk)
 
         # Append assistant response to history and save
         assistant_entry = {
