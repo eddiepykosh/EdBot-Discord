@@ -141,24 +141,47 @@ async def process_message(message: discord.Message):
 
     logger.info("Processing message in channel %s from %s", channel_id, author_name)
 
+    # Filter image attachments
+    image_attachments = [
+        a for a in message.attachments
+        if a.content_type and a.content_type.startswith("image/")
+    ]
+
+    # Skip if nothing to process
+    if not message.content.strip() and not image_attachments:
+        return
+
     try:
         # Load history
         history = await asyncio.to_thread(load_history, channel_id)
 
+        # Build history text - image filenames stored as labels since CDN URLs expire
+        history_text = f"{author_name}: {message.content}"
+        if image_attachments:
+            labels = " ".join(f"[image: {a.filename}]" for a in image_attachments)
+            history_text = f"{history_text} {labels}".strip()
+
         # Append user message
         user_entry = {
             "role": "user",
-            "content": f"{author_name}: {message.content}",
+            "content": history_text,
             "author": author_name,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         history.append(user_entry)
 
         # Prepare API payload (last 60 entries, role+content only)
-        api_history = [
-            {"role": msg["role"], "content": msg["content"]}
-            for msg in history[-MAX_API_MESSAGES:]
-        ]
+        # Current message is multimodal if images are present
+        api_messages = history[-MAX_API_MESSAGES:]
+        api_history = []
+        for i, msg in enumerate(api_messages):
+            if i == len(api_messages) - 1 and image_attachments:
+                content_parts = [{"type": "input_text", "text": msg["content"]}]
+                for a in image_attachments:
+                    content_parts.append({"type": "input_image", "image_url": a.url})
+                api_history.append({"role": "user", "content": content_parts})
+            else:
+                api_history.append({"role": msg["role"], "content": msg["content"]})
 
         # Call Azure AI with typing indicator
         async with message.channel.typing():
