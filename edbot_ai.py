@@ -220,7 +220,7 @@ async def process_message(message: discord.Message):
             response = await asyncio.to_thread(
                 openai_client.responses.create,
                 input=api_history,
-                extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
             )
         elapsed = time.monotonic() - t_start
         logger.info("Azure AI responded in %.2fs (response_id: %s)", elapsed, getattr(response, "id", "n/a"))
