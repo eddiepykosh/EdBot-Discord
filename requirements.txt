@@ -13,4 +13,5 @@ yt_dlp>=2025.4.30
 discord.py[voice]
 azure-ai-projects>=2.0.0b1
 azure-identity
+anthropic>=0.52.0
 # PyNaCl

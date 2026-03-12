@@ -5,11 +5,10 @@ import time
 from datetime import datetime, timezone
 
 import discord
-from azure.ai.projects import AIProjectClient
-from azure.identity import DefaultAzureCredential
 
 from common.logger import get_logger
-from config import AZURE_AI_ENDPOINT, AZURE_AI_AGENT_NAME, ALLOWED_CHANNEL_IDS, DISCORD_TOKEN, SCRIPT_DIR
+from config import AI_PROVIDER, ALLOWED_CHANNEL_IDS, DISCORD_TOKEN, SCRIPT_DIR
+from providers import get_provider
 
 logger = get_logger("edbot_ai")
 
@@ -26,9 +25,8 @@ for ch_id in ALLOWED_CHANNEL_IDS.split(","):
 # Per-channel locks to prevent concurrent processing
 channel_locks: dict[int, asyncio.Lock] = {}
 
-# Azure clients (initialized in on_ready)
-openai_client = None
-agent = None
+# AI provider (initialized in on_ready)
+provider = None
 
 # Discord client setup
 intents = discord.Intents.default()
@@ -74,23 +72,19 @@ def save_history(channel_id: int, history: list[dict]) -> None:
 
 @client.event
 async def on_ready():
-    global openai_client, agent
+    global provider
 
     logger.info("Logged in as %s (ID: %s)", client.user, client.user.id)
     logger.info("Allowed channels: %s", allowed_channels)
     logger.info("discord.py version: %s", discord.__version__)
 
     try:
-        logger.info("Initializing Azure AI client (endpoint: %s, agent: %s)", AZURE_AI_ENDPOINT, AZURE_AI_AGENT_NAME)
-        project_client = AIProjectClient(
-            endpoint=AZURE_AI_ENDPOINT,
-            credential=DefaultAzureCredential(),
-        )
-        agent = project_client.agents.get(agent_name=AZURE_AI_AGENT_NAME)
-        openai_client = project_client.get_openai_client()
-        logger.info("Azure AI client initialized (agent: %s, id: %s)", agent.name, agent.id)
+        logger.info("Initializing AI provider: %s", AI_PROVIDER)
+        provider = get_provider(AI_PROVIDER)
+        provider.initialize()
+        logger.info("AI provider '%s' initialized successfully", AI_PROVIDER)
     except Exception as e:
-        logger.error("Failed to initialize Azure AI client: %s", e, exc_info=True)
+        logger.error("Failed to initialize AI provider '%s': %s", AI_PROVIDER, e, exc_info=True)
 
 
 @client.event
@@ -123,9 +117,9 @@ async def on_message(message: discord.Message):
         await handle_clear(message)
         return
 
-    # Check if Azure client is ready
-    if openai_client is None or agent is None:
-        logger.warning("Azure AI client not initialized, ignoring message in channel %s", message.channel.id)
+    # Check if AI provider is ready
+    if provider is None or not provider.is_ready():
+        logger.warning("AI provider not initialized, ignoring message in channel %s", message.channel.id)
         return
 
     lock = get_channel_lock(message.channel.id)
@@ -200,34 +194,21 @@ async def process_message(message: discord.Message):
         }
         history.append(user_entry)
 
-        # Prepare API payload (last 60 entries, role+content only)
-        # Current message is multimodal if images are present
-        api_messages = history[-MAX_API_MESSAGES:]
-        api_history = []
-        for i, msg in enumerate(api_messages):
-            if i == len(api_messages) - 1 and image_attachments:
-                content_parts = [{"type": "input_text", "text": msg["content"]}]
-                for a in image_attachments:
-                    content_parts.append({"type": "input_image", "image_url": a.url})
-                api_history.append({"role": "user", "content": content_parts})
-            else:
-                api_history.append({"role": msg["role"], "content": msg["content"]})
+        # Prepare API messages (last 60 entries, role+content only)
+        api_messages = [{"role": msg["role"], "content": msg["content"]} for msg in history[-MAX_API_MESSAGES:]]
 
-        # Call Azure AI with typing indicator
-        logger.debug("Sending request to Azure AI (agent: %s, payload_messages: %d)", agent.name, len(api_history))
+        # Call AI provider with typing indicator
+        logger.debug("Sending request to AI provider (messages: %d)", len(api_messages))
         t_start = time.monotonic()
         async with message.channel.typing():
-            response = await asyncio.to_thread(
-                openai_client.responses.create,
-                input=api_history,
-                extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
+            reply, history_content = await asyncio.to_thread(
+                provider.create_response, api_messages, image_attachments,
             )
         elapsed = time.monotonic() - t_start
-        logger.info("Azure AI responded in %.2fs (response_id: %s)", elapsed, getattr(response, "id", "n/a"))
+        logger.info("AI provider responded in %.2fs", elapsed)
 
-        reply = response.output_text
         if not reply:
-            logger.warning("Azure AI returned empty response for message %s in channel %s", message.id, channel_id)
+            logger.warning("AI provider returned empty response for message %s in channel %s", message.id, channel_id)
 
         # Send reply in chunks respecting Discord's 2000 char limit
         chunks = []
@@ -247,7 +228,7 @@ async def process_message(message: discord.Message):
         # Append assistant response to history and save
         assistant_entry = {
             "role": "assistant",
-            "content": reply,
+            "content": history_content,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         history.append(assistant_entry)
