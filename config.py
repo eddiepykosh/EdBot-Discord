@@ -17,6 +17,10 @@ AZURE_AI_ENDPOINT = os.getenv('AZURE_AI_ENDPOINT')
 AZURE_AI_AGENT_NAME = os.getenv('AZURE_AI_AGENT_NAME')
 ALLOWED_CHANNEL_IDS = os.getenv('ALLOWED_CHANNEL_IDS', '')
 
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'azure')  # 'azure' or 'claude'
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+CLAUDE_MODEL = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-6')
+
 ASSETS_TEXT_PATH = os.path.join(SCRIPT_DIR, 'assets', 'text')
 ASSETS_AUDIO_PATH = os.path.join(SCRIPT_DIR, 'assets', 'audio')
 DATA_PATH = os.path.join(SCRIPT_DIR, 'data')
