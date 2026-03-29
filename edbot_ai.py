@@ -209,6 +209,7 @@ async def process_message(message: discord.Message):
 
         if not reply:
             logger.warning("AI provider returned empty response for message %s in channel %s", message.id, channel_id)
+            return
 
         # Send reply in chunks respecting Discord's 2000 char limit
         chunks = []

@@ -7,6 +7,8 @@ from providers.base import AIProvider
 
 logger = get_logger("edbot_ai.azure")
 
+MAX_AGENTIC_LOOPS = 10
+
 
 class AzureProvider(AIProvider):
     def __init__(self):
@@ -38,11 +40,40 @@ class AzureProvider(AIProvider):
             else:
                 api_history.append({"role": msg["role"], "content": msg["content"]})
 
-        response = self.openai_client.responses.create(
-            input=api_history,
-            extra_body={"agent_reference": {"name": self.agent.name, "type": "agent_reference"}},
-        )
+        current_input = api_history
+        for loop in range(MAX_AGENTIC_LOOPS):
+            response = self.openai_client.responses.create(
+                input=current_input,
+                extra_body={"agent_reference": {"name": self.agent.name, "type": "agent_reference"}},
+            )
+
+            approval_requests = [
+                item for item in response.output if item.type == "mcp_approval_request"
+            ]
+            if not approval_requests:
+                break
+
+            # Auto-approve all MCP tool calls and continue the loop
+            logger.info(
+                "Auto-approving %d MCP tool request(s) on loop %d: %s",
+                len(approval_requests),
+                loop + 1,
+                [getattr(item, "name", item.type) for item in approval_requests],
+            )
+            approvals = [
+                {"type": "mcp_approval_response", "approve": True, "approval_request_id": item.id}
+                for item in approval_requests
+            ]
+            current_input = list(response.output) + approvals
+        else:
+            logger.warning("Reached max agentic loops (%d) without a text response", MAX_AGENTIC_LOOPS)
 
         reply = response.output_text
+        if not reply:
+            logger.warning(
+                "output_text empty after agentic loop — response status: %s, output items: %s",
+                response.status,
+                [(item.type, getattr(item, "status", None)) for item in response.output],
+            )
         # Azure stores plain text in history
         return (reply, reply)
