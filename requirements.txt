@@ -11,7 +11,5 @@ twilio>=9.0.4
 wolframalpha>=5.0.0
 yt_dlp>=2025.4.30
 discord.py[voice]
-azure-ai-projects>=2.0.0b1
-azure-identity
-anthropic>=0.52.0
+openai>=2.21.0
 # PyNaCl

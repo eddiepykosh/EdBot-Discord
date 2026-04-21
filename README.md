@@ -31,6 +31,7 @@ EdBot is a versatile Discord bot designed to "enhance" your server experience. O
 
 - **Command-based interactions**: Execute commands with `./` to trigger various actions.
 - **Keyword listener**: Responds to specific keywords with predefined actions.
+- **AI chat bot**: `edbot_ai.py` replies in designated Discord channels using an OpenAI-compatible Responses API backend.
 - **Audio playback**: Plays MP3 files directly in your Discord server.
 - **Weather updates**: Provides current weather information for a given city.
 - ~~**Text-to-Speech (TTS)**: Converts text into speech using AWS Polly.~~
@@ -89,6 +90,12 @@ EdBot is a versatile Discord bot designed to "enhance" your server experience. O
      python edbot_listener.py
      ```
 
+   - Start the AI bot:
+
+     ```bash
+     python edbot_ai.py
+     ```
+
 5. (Optional) Automate the bot using the provided `.service` files for systemd.
 
 ---
@@ -130,6 +137,7 @@ EdBot 3.0 is a significant improvement over its predecessors, but some quirks ma
 
 - **No `main.py`**: Each script must be run individually.
 - **Environment Variables**: Use the provided `.env` template.
+- **AI config**: `edbot_ai.py` uses `OPENAI_API_KEY`, `OPENAI_MODEL`, optional `OPENAI_BASE_URL`, and optional Tavily MCP settings for live web search.
 - **Dependencies**:
   - Python 3.8+ and the packages listed in `requirements.txt`.
   - FFMPEG for audio features.

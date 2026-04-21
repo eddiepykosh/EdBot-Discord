@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import discord
 
 from common.logger import get_logger
-from config import AI_PROVIDER, ALLOWED_CHANNEL_IDS, DISCORD_TOKEN, SCRIPT_DIR
+from config import ALLOWED_CHANNEL_IDS, DISCORD_TOKEN, SCRIPT_DIR
 from providers import get_provider
 
 logger = get_logger("edbot_ai")
@@ -79,12 +79,12 @@ async def on_ready():
     logger.info("discord.py version: %s", discord.__version__)
 
     try:
-        logger.info("Initializing AI provider: %s", AI_PROVIDER)
-        provider = get_provider(AI_PROVIDER)
+        logger.info("Initializing AI provider: openai-compatible")
+        provider = get_provider()
         provider.initialize()
-        logger.info("AI provider '%s' initialized successfully", AI_PROVIDER)
+        logger.info("AI provider initialized successfully")
     except Exception as e:
-        logger.error("Failed to initialize AI provider '%s': %s", AI_PROVIDER, e, exc_info=True)
+        logger.error("Failed to initialize AI provider: %s", e, exc_info=True)
 
 
 @client.event
