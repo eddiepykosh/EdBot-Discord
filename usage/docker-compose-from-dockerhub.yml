@@ -7,7 +7,7 @@ services:
     volumes:
       - ./data:/app/data                             # Host 'data' directory mapped to container
       - ./logs:/app/logs                             # Host 'logs' directory mapped to container
-      - ./assets:/app/assets:ro                      # Optional: map assets if you want to override or persist them
+      - ./assets:/app/assets                  # Optional: map assets if you want to override or persist them
     restart: unless-stopped
 
   edbot_listener:
@@ -17,5 +17,15 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
-      - ./assets:/app/assets:ro
+      - ./assets:/app/assets
+    restart: unless-stopped
+
+  edbot_ai:
+    image: eddiepykosh/edbot:latest
+    command: python edbot_ai.py
+    env_file: ./.env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./history:/app/history
     restart: unless-stopped
