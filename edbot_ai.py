@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import sys
 import time
@@ -11,16 +10,17 @@ from common.logger import get_logger
 from config import (
     ALLOWED_CHANNEL_IDS,
     DISCORD_TOKEN,
-    SCRIPT_DIR,
+    HISTORY_PATH,
     parse_channel_ids,
     validate_required_env,
     warn_invalid_int_env,
 )
+from utils import load_json_file, save_json_atomic
 from providers import get_provider
 
 logger = get_logger("edbot_ai")
 
-HISTORY_DIR = os.path.join(SCRIPT_DIR, "history")
+HISTORY_DIR = HISTORY_PATH
 MAX_API_MESSAGES = 60  # 30 pairs
 
 allowed_channels, invalid_channel_ids = parse_channel_ids(ALLOWED_CHANNEL_IDS)
@@ -53,11 +53,10 @@ def load_history(channel_id: int) -> list[dict]:
         logger.debug("No history file for channel %s, starting fresh", channel_id)
         return []
     try:
-        with open(path, "r") as f:
-            history = json.load(f)
+        history = load_json_file(path, [])
         logger.debug("Loaded %d history entries for channel %s", len(history), channel_id)
         return history
-    except (json.JSONDecodeError, IOError) as e:
+    except IOError as e:
         logger.error("Failed to load history for channel %s: %s", channel_id, e, exc_info=True)
         return []
 
@@ -66,8 +65,7 @@ def save_history(channel_id: int, history: list[dict]) -> None:
     os.makedirs(HISTORY_DIR, exist_ok=True)
     path = get_history_path(channel_id)
     try:
-        with open(path, "w") as f:
-            json.dump(history, f, indent=2)
+        save_json_atomic(path, history)
         logger.debug("Saved %d history entries for channel %s", len(history), channel_id)
     except IOError as e:
         logger.error("Failed to save history for channel %s: %s", channel_id, e, exc_info=True)

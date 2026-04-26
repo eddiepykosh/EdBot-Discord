@@ -37,6 +37,7 @@ TAVILY_MCP_DEFAULT_PARAMETERS = os.getenv('TAVILY_MCP_DEFAULT_PARAMETERS')
 ASSETS_TEXT_PATH = os.path.join(SCRIPT_DIR, 'assets', 'text')
 ASSETS_AUDIO_PATH = os.path.join(SCRIPT_DIR, 'assets', 'audio')
 DATA_PATH = os.path.join(SCRIPT_DIR, 'data')
+HISTORY_PATH = os.getenv('HISTORY_PATH', os.path.join(SCRIPT_DIR, 'history'))
 
 
 def get_missing_env(names):

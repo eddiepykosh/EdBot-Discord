@@ -2,6 +2,11 @@
 .env
 
 data/swear_counts.pkl
+data/swear_counts.json
+data/scores.pkl
+data/scores.json
+data/fortnite.png
+data/last_tts.mp3
 logs/
 .venv/
 history/

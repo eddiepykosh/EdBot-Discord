@@ -12,7 +12,6 @@ from botocore.exceptions import BotoCoreError, ClientError # More TTS
 from contextlib import closing # Even More TTS
 import wolframalpha
 import yt_dlp
-import pickle
 import functools
 import aiohttp
 import asyncio
@@ -22,42 +21,33 @@ from config import (
     DISCORD_TOKEN, AWS_ID, AWS_SECRET, API_BASE_URL, mathID, DATA_PATH, ASSETS_AUDIO_PATH,
     ASSETS_TEXT_PATH, validate_required_env, warn_invalid_int_env, warn_missing_optional_env
 )
-from utils import load_pickle, save_pickle
+from utils import load_json_state, save_bytes_atomic, save_json_atomic
 from common.logger import get_logger
 
 logger = get_logger(__name__)
+os.makedirs(DATA_PATH, exist_ok=True)
 
 # Find where script is running
 #script_dir = os.path.dirname(__file__)
 
 # Rock Paper Scissor Stuff
-score_file = os.path.join(DATA_PATH, 'scores.pkl')
+score_file = os.path.join(DATA_PATH, 'scores.json')
+legacy_score_file = os.path.join(DATA_PATH, 'scores.pkl')
 # Function to load scores from file
-async def load_scores():
-    if os.path.exists(score_file):
-        try:
-            with open(score_file, 'rb') as f:
-                return pickle.load(f)
-        except Exception as e:
-            logger.error(f"Error loading scores: {e}")
-            return {}
-    else:
-        return {}
+def load_scores():
+    return load_json_state(score_file, {}, legacy_score_file)
+
 async def save_scores(scores):
     try:
-        with open(score_file, 'wb') as f:
-            pickle.dump(scores, f)
+        save_json_atomic(score_file, scores)
     except Exception as e:
         logger.error(f"Error saving scores: {e}")
 
-all_scores = asyncio.run(load_scores())
+all_scores = load_scores()
 
 # Function to load swear counts from a file
-def load_swear_counts(filename):
-    if os.path.exists(filename):
-        with open(filename, 'rb') as file:
-            return pickle.load(file)
-    return {}
+def load_swear_counts(filename, legacy_filename=None):
+    return load_json_state(filename, {}, legacy_filename)
 
 
 
@@ -67,7 +57,7 @@ def load_swear_counts(filename):
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
-    'outtmpl': 'data/%(title)s.%(ext)s',  # Saves files under the `data/` directory
+    'outtmpl': os.path.join(DATA_PATH, '%(title)s.%(ext)s'),
     'restrictfilenames': True,
     'noplaylist': True,
     'nocheckcertificate': True,
@@ -101,15 +91,13 @@ class YTDLSource(discord.PCMVolumeTransformer):
             # take first item from the results
             data = data['entries'][0]
 
-        # Ensure the /data directory exists
-        if not os.path.exists('data'):
-            os.makedirs('data')
+        os.makedirs(DATA_PATH, exist_ok=True)
 
         filename = data['title'] if stream else ytdl.prepare_filename(data)
-        
-        # Adjust filename path to include data/ prefix explicitly, ensuring compatibility
-        if not filename.startswith('data/'):
-            filename = os.path.join('data', os.path.basename(filename))
+        data_path = os.path.abspath(DATA_PATH)
+        filename = os.path.abspath(filename)
+        if os.path.commonpath([data_path, filename]) != data_path:
+            filename = os.path.join(data_path, os.path.basename(filename))
 
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
@@ -241,11 +229,10 @@ async def tts(ctx, *, whatTotts):
         if 'AudioStream' in response:
 
             with closing(response['AudioStream']) as stream:
-                output = 'last_tts.mp3'
+                output = os.path.join(DATA_PATH, 'last_tts.mp3')
                 try:
-                    with open(output, 'wb') as file:
-                        file.write(stream.read())
-                        logger.info("Made TTS")
+                    save_bytes_atomic(output, stream.read())
+                    logger.info("Made TTS")
 
                 except IOError as error:
                     logger.error(error)
@@ -259,7 +246,7 @@ async def tts(ctx, *, whatTotts):
         logger.error(error)
         await ctx.send("BotoCoreError: " + str(error))
         return error
-    await audioPlayer(ctx, 'last_tts.mp3', "TTS Created")
+    await audioPlayer(ctx, os.path.join(DATA_PATH, 'last_tts.mp3'), "TTS Created")
 
 # Will never actually ban someone. Just a social experiment 
 @bot.command(name='ban', help='/ban @username')
@@ -604,8 +591,9 @@ async def score(ctx):
 
 @bot.command(name='swear_count', help='how many times did you say a bad word?')
 async def swear_count(ctx):
-    swear_counts_file = os.path.join(DATA_PATH, 'swear_counts.pkl')
-    swear_counts = load_swear_counts(swear_counts_file)
+    swear_counts_file = os.path.join(DATA_PATH, 'swear_counts.json')
+    legacy_swear_counts_file = os.path.join(DATA_PATH, 'swear_counts.pkl')
+    swear_counts = load_swear_counts(swear_counts_file, legacy_swear_counts_file)
     user_id = str(ctx.author.id)
     total_swears = swear_counts.get(user_id, 0)
     await ctx.send(f"You have sworn a total of {total_swears} time(s).")

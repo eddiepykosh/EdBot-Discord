@@ -11,11 +11,12 @@ from config import (
 	ASSETS_TEXT_PATH, DATA_PATH, validate_required_env
 )
 from utils import (
-	load_list_from_file, load_swears, load_pickle, save_pickle
+	load_list_from_file, load_swears, load_json_state, save_json_atomic
 )
 from common.logger import get_logger
 
 logger = get_logger(__name__)
+os.makedirs(DATA_PATH, exist_ok=True)
 
 # Load static data
 logger.info("Loading static data...")
@@ -23,8 +24,9 @@ city_list = load_list_from_file(os.path.join(ASSETS_TEXT_PATH, 'cities.txt'))
 bully_words = load_list_from_file(os.path.join(ASSETS_TEXT_PATH, 'bully_words.txt'))
 edbot_responses_list = load_list_from_file(os.path.join(ASSETS_TEXT_PATH, 'edbot_responses.txt'))
 swears = load_swears(os.path.join(ASSETS_TEXT_PATH, 'swears.txt'))
-swear_counts_file = os.path.join(DATA_PATH, 'swear_counts.pkl')
-swear_counts = load_pickle(swear_counts_file)
+swear_counts_file = os.path.join(DATA_PATH, 'swear_counts.json')
+legacy_swear_counts_file = os.path.join(DATA_PATH, 'swear_counts.pkl')
+swear_counts = load_json_state(swear_counts_file, {}, legacy_swear_counts_file)
 
 swear_responses = {
 	'not_bad': ["pottymouth", "that's not nice"],
@@ -152,7 +154,9 @@ async def on_message(message):
 				await page.goto('https://fnbr.co/shop')
 				os.makedirs(DATA_PATH, exist_ok=True)
 				screenshot_path = os.path.join(DATA_PATH, 'fortnite.png')
-				await page.screenshot(path=screenshot_path, full_page=True)
+				temp_screenshot_path = os.path.join(DATA_PATH, 'fortnite.png.tmp')
+				await page.screenshot(path=temp_screenshot_path, full_page=True)
+				os.replace(temp_screenshot_path, screenshot_path)
 				await browser.close()
 				logger.info(f"Fortnite store screenshot saved to: {screenshot_path}")
 				await message.channel.send(file=discord.File(screenshot_path))
@@ -199,7 +203,7 @@ async def on_message(message):
 		logger.debug(f"Swear tracking: {swear_count_message}")
 		user_id = str(message.author.id)
 		swear_counts[user_id] = swear_counts.get(user_id, 0) + total_swears
-		save_pickle(swear_counts_file, swear_counts)
+		save_json_atomic(swear_counts_file, swear_counts)
 		logger.info(f"Updated swear counts for user {user_id}: {swear_counts[user_id]}")
 		# Random chance to respond to swears
 		if swear_count_message['really_bad'] > 0 and random.random() < 0.5:
