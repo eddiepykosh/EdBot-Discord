@@ -9,8 +9,8 @@ services:
     command: python edbot_command.py
     env_file: .env
     volumes:
-      - /container-data/edbot/data:/app/data
-      - /container-data/edbot/logs:/app/logs 
+      - ./data:/app/data
+      - ./logs:/app/logs 
     restart: unless-stopped
 
   listener:
@@ -18,8 +18,8 @@ services:
     command: python edbot_listener.py
     env_file: .env
     volumes:
-      - /container-data/edbot/data:/app/data
-      - /container-data/edbot/logs:/app/logs
+      - ./data:/app/data
+      - ./logs:/app/logs 
     restart: unless-stopped
 
   edbot-ai:
@@ -27,9 +27,9 @@ services:
     command: python edbot_ai.py
     env_file: .env
     volumes:
-      - /container-data/edbot/data:/app/data
-      - /container-data/edbot/logs:/app/logs
-      - /container-data/edbot/history:/app/history
+      - ./data:/app/data
+      - ./logs:/app/logs 
+      - ./history:/app/history
     restart: unless-stopped
 
 volumes:
