@@ -233,4 +233,4 @@ The AI bot listens only in channels listed in `ALLOWED_CHANNEL_IDS`. Send `!clea
 
 ## Todo
 
-- Integrate EdBot into a Boston Dynamics Spot robot, pending a perfectly reasonable funding event.
+- sentience
