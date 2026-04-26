@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 import discord
 from discord.ext import commands
 from pyowm import OWM
@@ -7,7 +8,7 @@ from playwright.async_api import async_playwright
 
 from config import (
 	DISCORD_TOKEN, OWM_TOKEN, WEATHER_PERSON, BULLIED_USER,
-	ASSETS_TEXT_PATH, DATA_PATH
+	ASSETS_TEXT_PATH, DATA_PATH, validate_required_env
 )
 from utils import (
 	load_list_from_file, load_swears, load_pickle, save_pickle
@@ -33,8 +34,7 @@ swear_responses = {
 
 # Weather setup
 logger.info("Setting up weather manager...")
-owm = OWM(OWM_TOKEN)
-mgr = owm.weather_manager()
+mgr = None
 
 # Discord client setup
 logger.info("Setting up Discord client...")
@@ -217,4 +217,16 @@ async def on_message(message):
 
 if __name__ == "__main__":
 	logger.info("Starting bot...")
-	client.run(DISCORD_TOKEN)
+	try:
+		validate_required_env(
+			["DISCORD_TOKEN", "OWM_TOKEN", "WEATHER_PERSON", "BULLIED_USER"],
+			logger,
+			"edbot_listener",
+		)
+		owm = OWM(OWM_TOKEN)
+		mgr = owm.weather_manager()
+		logger.info("Weather manager initialized")
+		client.run(DISCORD_TOKEN)
+	except Exception as e:
+		logger.critical("edbot_listener startup failed: %s", e, exc_info=True)
+		sys.exit(1)

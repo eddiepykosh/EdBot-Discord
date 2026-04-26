@@ -1,13 +1,21 @@
 import asyncio
 import json
 import os
+import sys
 import time
 from datetime import datetime, timezone
 
 import discord
 
 from common.logger import get_logger
-from config import ALLOWED_CHANNEL_IDS, DISCORD_TOKEN, SCRIPT_DIR
+from config import (
+    ALLOWED_CHANNEL_IDS,
+    DISCORD_TOKEN,
+    SCRIPT_DIR,
+    parse_channel_ids,
+    validate_required_env,
+    warn_invalid_int_env,
+)
 from providers import get_provider
 
 logger = get_logger("edbot_ai")
@@ -15,12 +23,7 @@ logger = get_logger("edbot_ai")
 HISTORY_DIR = os.path.join(SCRIPT_DIR, "history")
 MAX_API_MESSAGES = 60  # 30 pairs
 
-# Parse allowed channel IDs into a set
-allowed_channels = set()
-for ch_id in ALLOWED_CHANNEL_IDS.split(","):
-    ch_id = ch_id.strip()
-    if ch_id.isdigit():
-        allowed_channels.add(int(ch_id))
+allowed_channels, invalid_channel_ids = parse_channel_ids(ALLOWED_CHANNEL_IDS)
 
 # Per-channel locks to prevent concurrent processing
 channel_locks: dict[int, asyncio.Lock] = {}
@@ -248,8 +251,22 @@ async def process_message(message: discord.Message):
 if __name__ == "__main__":
     logger.info("Starting edbot_ai")
     try:
+        validate_required_env(
+            ["DISCORD_TOKEN", "OPENAI_API_KEY", "OPENAI_MODEL", "ALLOWED_CHANNEL_IDS"],
+            logger,
+            "edbot_ai",
+        )
+        if invalid_channel_ids:
+            raise RuntimeError(
+                "edbot_ai ALLOWED_CHANNEL_IDS contains invalid value(s): "
+                + ", ".join(invalid_channel_ids)
+            )
+        if not allowed_channels:
+            raise RuntimeError("edbot_ai ALLOWED_CHANNEL_IDS must include at least one numeric channel ID")
+        warn_invalid_int_env(["OPENAI_MAX_OUTPUT_TOKENS"], logger)
         client.run(DISCORD_TOKEN)
     except Exception as e:
-        logger.critical("client.run() exited with an exception: %s", e, exc_info=True)
+        logger.critical("edbot_ai startup failed: %s", e, exc_info=True)
+        sys.exit(1)
     finally:
         logger.info("edbot_ai shutting down")

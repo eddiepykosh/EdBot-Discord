@@ -1,6 +1,7 @@
 import os
 import random
-import discord 
+import sys
+import discord
 from discord.ext import commands, tasks 
 import time
 import asyncpraw # Reddit Async Library
@@ -18,7 +19,8 @@ import asyncio
 from datetime import datetime
 
 from config import (
-    DISCORD_TOKEN, AWS_ID, AWS_SECRET, API_BASE_URL, mathID, DATA_PATH, ASSETS_AUDIO_PATH, ASSETS_TEXT_PATH
+    DISCORD_TOKEN, AWS_ID, AWS_SECRET, API_BASE_URL, mathID, DATA_PATH, ASSETS_AUDIO_PATH,
+    ASSETS_TEXT_PATH, validate_required_env, warn_invalid_int_env, warn_missing_optional_env
 )
 from utils import load_pickle, save_pickle
 from common.logger import get_logger
@@ -610,7 +612,26 @@ async def swear_count(ctx):
 
 
 
-bot.run(DISCORD_TOKEN) # Kickoff EdBot
+if __name__ == "__main__":
+    try:
+        validate_required_env(["DISCORD_TOKEN"], logger, "edbot_command")
+        warn_missing_optional_env(
+            {
+                "AWS Polly TTS command": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
+                "WolframAlpha math command": ["WRA_MATH_KEY"],
+                "Reddit command": ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"],
+                "streaming announcement command": ["STREAMING_CHANNEL"],
+                "parrot command": ["PARROT_CHANNEL"],
+                "Fortnite callout command": ["FORTNITE_PEOPLE"],
+                "Valorant callout command": ["VALORANT_PEOPLE"],
+            },
+            logger,
+        )
+        warn_invalid_int_env(["STREAMING_CHANNEL", "PARROT_CHANNEL"], logger)
+        bot.run(DISCORD_TOKEN) # Kickoff EdBot
+    except Exception as e:
+        logger.critical("edbot_command startup failed: %s", e, exc_info=True)
+        sys.exit(1)
 
 
 
